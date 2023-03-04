@@ -7,6 +7,6 @@ Minimal version of the code used in my master thesis and in the paper [Digital Q
 ### Conda
 
 ```bash
-pip install qiskit 'qiskit[visualization]'
-conda install -c conda-forge matplotlib seaborn -y
+pip install qiskit 'qiskit[visualization]' qiskit-ignis==0.7.1 mypy pylint
+conda install -c conda-forge matplotlib seaborn python-dotenv -y
 ```
