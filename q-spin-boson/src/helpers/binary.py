@@ -1,9 +1,16 @@
 import math
+import numpy as np
 
+from settings.types import Enc
 
 def to_binary(i, length):
     b = bin(i)[2:]  # without 0b...
     return str(0) * (length - len(b)) + b
+
+
+def state_to_binary(state):
+    _bin = to_binary(np.nonzero(state)[1], 5)
+    return _bin[::-1]
 
 
 def sb_sequence(numbers=0, length=None, rev=False):
@@ -48,15 +55,11 @@ def gray_sequence(numbers=3, length=None, rev=False):
     return gray_seq
 
 
-def get_seq(encoding, numbers=None, length=None, rev=False):
-    if encoding == 'sb':
+def get_seq(encoding: Enc, numbers=None, length=None, rev=False):
+    if encoding == Enc.BINARY:
         seq = sb_sequence(numbers=numbers, length=length, rev=rev)
-    elif encoding in ['unary', 'fullunary']:
+    elif encoding in [Enc.SPLITUNARY, Enc.FULLUNARY]:
         seq = unary_sequence(numbers=numbers, length=length)
-    elif encoding == 'gray':
+    elif encoding == Enc.GRAY:
         seq = gray_sequence(numbers=numbers, length=length, rev=rev)
     return seq
-
-def state_to_binary(state):
-    _bin = bc.to_bin(np.nonzero(state)[1], 5)
-    return _bin[::-1]
