@@ -4,12 +4,16 @@ from numpy.typing import NDArray # typechecking with mypy
 import matplotlib.pyplot as plt
 import math as m
 import scipy.linalg # expm
+from itertools import product # permutations, combinations
+import functools as ft  # XX = ft.reduce(np.kron, [A, B, C, D, E])
 from dotenv import load_dotenv  # load environment variables from env file
 import os
-import functools as ft  # XX = ft.reduce(np.kron, [A, B, C, D, E])
+from pathlib import Path
 import time as time # code timing
 from datetime import datetime 
 import pickle # save/load objects
+
+from qutip import Qobj, Options, mesolve, sigmaz, expect, projection
 
 from qiskit import Aer, QuantumCircuit, QuantumRegister, transpile, IBMQ, execute
 from qiskit.visualization import plot_histogram, array_to_latex, plot_gate_map, plot_circuit_layout
@@ -33,8 +37,9 @@ from src.helpers.noise_modeling import modified_noise_model
 from src.helpers.hamiltonian_matrix import hamiltonian_as_matrix
 from src.helpers.hamiltonian_qiskit import matrix_to_pauli, pauli_to_qiskit, hamiltonian_as_paulis
 from src.helpers.environment_interaction import swap_matrix, pswap_matrix, ad_matrix, adc_circuit, kraus0_diluted 
-from src.helpers.binary import unary_sequence, sb_sequence, get_seq
+from src.helpers.binary import unary_sequence, sb_sequence, get_seq, fillin_counts
 from src.helpers.error_mitigation import mitigate_error
+from src.helpers.operators import expct, get_state_label, dm_fidelity
 
 # load environment variables from env file
 # DIR_ENV = os.path.join(os.path.dirname(__file__), 'settings/paths.env')
@@ -109,6 +114,12 @@ class Simulation():
         self.d_system: int = None # dimension of system
         self.spins: List[int] = None # spins of system
         self.s_a_pairs: List[int] = None # spin-ancilla pairs (system, env)
+        # operators
+        self.sz_ops: List[NDArray] = None # z measurement operators
+        self.sx_ops: List[NDArray] = None # x measurement operators
+        self.sy_ops: List[NDArray] = None # y measurement operators
+        self.ada: NDArray = None # boson number operator
+        self.l_ops: List[NDArray] = None # lindblad (dissipation) operators
         # --------------------------------------------------------------------
         # containers for simulation results
         # noiseless circuit
@@ -119,6 +130,7 @@ class Simulation():
         self.dm = []  # density matrix
         self.szcorr = []  # connected correlation <sz sz> - <sz><sz>
         self.sxcorr = []  # connected correlation <sx sx> - <sx><sx>
+        self.sycorr = []  # connected correlation <sy sy> - <sy><sy>
         self.bosons = []  # boson occupation number
         # error em circuit = noise model + measurement mitigation
         self.evo_em = []  # evolution of system
@@ -144,6 +156,8 @@ class Simulation():
         # post selection quota
         self.ps_quota = [] 
         self.ps_quota_em = [] 
+        # state labels
+        self.labels = []
         # --------------------------------------------------------------------
         self.load_status: int = 0
         
@@ -152,6 +166,8 @@ class Simulation():
         self.update_name()
         self.load_status = self.load()
         if self.load_status == 404:
+            self.build_operators()
+            self.set_labels()
             self.simulate_qc()
             self.simulate_exact_linblad()
             self.compare_simulations()
@@ -182,7 +198,7 @@ class Simulation():
     def load(self):
         # check if saved model exists
         path = f'{DIR_SAVED_MODELS}{self.name}.pickle'
-        if path.is_file():
+        if Path(path).is_file():
             # load model
             self.__dict__.update(pickle.load(
                 open(path, mode='rb')
@@ -202,10 +218,56 @@ class Simulation():
 
     def circuit_to_image(self):
         return 0
+    
+    def build_operators(self) -> None:
+        """Build spin and boson number operators.
+        Used for exact reference and labels.
+        Overwrite in child class.
+        """
+        return
+    
+    def set_labels(self) -> None:
+        """Set labels of states for plots."""
+        labels = []
+        for d in range(self.d_system):
+            basis_dm = np.zeros([self.d_system, self.d_system])
+            basis_dm[d][d] = 1
+            self.labels.append(get_state_label(basis_dm, self.sz_ops, self.ada))
+        self.labels = labels
+        return
 
-    def simulate_exact_linblad(self):
+    def simulate_exact_linblad(self) -> None:
+        if self.h_mat is None:
+            h_obj = Qobj(np.zeros([self.d_system, self.d_system]))
+        else:
+            h_obj = Qobj(self.h_mat)
+        i_system = np.reshape(self.i_system, [np.size(self.i_system), 1])
+        rho0 = Qobj(i_system @ i_system.T)
+        dm_qutip = mesolve(H=h_obj, rho0=rho0, tlist=self.timesteps, 
+                           c_ops=[Qobj(l) for l in self.l_ops])
+        # evolution
+        self.evo_exact = [
+            np.real(expect(dm_qutip.states, projection(self.d_system, st, st))) 
+            for st in range(self.d_system)]
+        # density matrix
+        self.dm_exact = [dm_qutip.states[t_step].data.toarray() 
+                         for t_step in range(len(self.timesteps))]
         # calculate observables from density matrix
-        return 0
+        for dm_t in self.dm_exact:
+            self.sz_exact.append([expct(_sz, dm_t) for _sz in self.sz_ops])
+            self.sx_exact.append([expct(_sx, dm_t) for _sx in self.sx_ops])
+            self.sy_exact.append([expct(_sy, dm_t) for _sy in self.sy_ops])
+            self.bosons_exact.append(expct(self.ada, dm_t))
+        # connected correlation
+        if len(self.spins) == 2:
+            for dm_t in self.dm_exact:
+                for _corr, _ops in zip(
+                    [self.szcorr_exact, self.sxcorr_exact, self.sycorr_exact],
+                    [self.sz_ops, self.sx_ops, self.sy_ops]):
+                    _corr.append(
+                        expct(dm_t, _ops[0] @ _ops[1]) 
+                        - (expct(dm_t, _ops[0]) * expct(dm_t, _ops[1])))
+        return 
     
     def set_default_simulation_parameters(self) -> None:
         """Set initial state, hamiltonian, noise model, backend, etc.
@@ -255,35 +317,49 @@ class Simulation():
         """Overwrite in child class"""
         return
 
-    def simulate_qc(self):
+    def simulate_qc(self) -> None:
         """Calculate the model"""
-        
         # Loop over all time steps
         if self.steps == Steps.LOOP:
             # Set initial state
             qc = self.qc_empty.copy()
-            for pos, c in enumerate(self.i_full_bin):
+            for pos, c in enumerate(self.i_full_binary):
                     if c == '1':
                         qc.x(pos)
             for t_step, t_point in enumerate(self.timesteps):
-                print(' Time-step', np.round(t_point, 2))
+                print(f' Time-step {t_point:.2f}')
                 # Add Trotter step
                 reset_a = t_step > 0 # first timepoint is 0, no evolution
                 qc = self.add_trotter_step(qc, t_point, reset_a)
-                # State tomography
-                if self.qst:
-                    qc = self.meas_tomography(qc, self.qubits_system)
-                # Measure system qubits
-                z_meas = self.meas_system(qc, self.qubits_system, self.n_qubits)
-                # Measure spins
-
-                # two-spin-correlations
-        else:
-            pass
-
-        # calculate observables from measurements
-
-        return 0
+                # Measure
+                self.meas_circuit(qc, self.qubits_system)
+        elif self.steps == Steps.NFIXED:
+            for t_step, t_point in enumerate(self.timesteps):
+                print(f' Time-step {t_point:.2f}')
+                # Set initial state
+                qc = self.qc_empty.copy()
+                for pos, c in enumerate(self.i_full_binary):
+                        if c == '1':
+                            qc.x(pos)
+                # Add Trotter steps
+                if t_step > 0:
+                    for eta_step in range(eta):
+                        reset_a = eta_step > 1
+                        qc = self.add_trotter_step(qc, t_point/eta, reset_a)
+                # Measure
+                self.meas_circuit(qc, self.qubits_system)
+        return
+    
+    def meas_circuit(self, qc, qubits) -> None:
+        """Measure qubits in qc"""
+        # State tomography
+        if self.qst:
+            self.meas_tomography(qc, qubits)
+        # Measure system qubits
+        self.meas_system(qc, qubits)
+        # Measure spins and bosons for observables
+        self.meas_spins_bosons(qc)
+        return 
 
     def add_trotter_step(self, qc, t, reset_a=True) -> QuantumCircuit:
         if self.h == H.SCNDORD:
@@ -293,7 +369,7 @@ class Simulation():
         elif self.h == H.QDRIFT:
             trotterized_op = PauliEvolutionGate(self.h_op, time=t, synthesis=QDrift(reps=1))
             qc.append(trotterized_op, self.qubits_system)
-        elif self.h == H.FIRSTORD:
+        elif self.h == H.FRSTORD:
             # trotterized_op = PauliTrotterEvolution(trotter_mode='trotter', reps=1).convert((h*t).exp_i())
             # same as PEG(), PEG(SuzukiTrotter(order=1)), PTE(Suzuki(order=1)), PTE('trotter')
             trotterized_op = PauliEvolutionGate(self.h_op, time=t, synthesis=LieTrotter(reps=1))
@@ -396,14 +472,15 @@ class Simulation():
         self.dm_em.append(dm_em)
         return 0
 
-    def meas_system(self, qc, meas_qubits, n_q):
+    def meas_system(self, qc: QuantumCircuit, meas_qubits: List[int]) -> None:
+        """Z-basis measurement of the system qubits."""
+        qnum = qc.num_qubits
         backend_ll = AerSimulator()
         n_q_meas = len(meas_qubits)
-        qc_m = QuantumCircuit(n_q, n_q_meas)
+        qc_m = QuantumCircuit(qnum, n_q_meas)
         qc_m.barrier(meas_qubits)
         qc_m.measure(qubit=meas_qubits, cbit=range(n_q_meas))
-        # lhs.compose(rhs)
-        qc_e_m = qc_m.compose(qc, qubits=range(n_q), front=True)
+        qc_e_m = qc_m.compose(qc, qubits=range(qnum), front=True)
         # noiseless
         qc_e_m_ll = transpile(qc_e_m, backend=backend_ll, optimization_level=2)
         job_t = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
@@ -430,8 +507,9 @@ class Simulation():
         elif self.enc == Enc.FULLUNARY:
             probs = [0 for _ in range(qubits)]
             labels = ['c' for _ in range(qubits)]
+        ordered_keys = self.ordered_keys
         if ordered_keys is None:
-            ordered_keys = get_seq(code, length=qubits, rev=False)
+            ordered_keys = get_seq(self.enc, length=qubits, rev=False)
         for key in cnts_select:
             if key in ordered_keys:
                 pos = ordered_keys.index(key)
@@ -450,10 +528,171 @@ class Simulation():
                 shots_select += counts[key]
         return counts_select, shots_select
             
+    def meas_spins_bosons(self, qc: QuantumCircuit) -> None:
+        qnum: int = qc.num_qubits
+        # ----------------------------------
+        # Z-basis, bosons
+        if len(self.spins) == 1:
+            # Z-basis from previous measurement
+            for probs, _sz in zip([self.evo[-1], self.evo_em[-1]], 
+                                  [self.sz, self.sz_em]):
+                _sz.append(- np.sum(probs[:self.n_bos]) 
+                           + np.sum(probs[self.n_bos:]))
+            # Bosons from previous measurement
+            for probs, _occ in zip([self.evo[-1], self.evo_em[-1]], 
+                                   [self.bosons, self.bosons_em]):
+                _occ.append(sum((probs[_b] + probs[_b+self.n_bos])*_b 
+                                for _b in range(1, self.n_bos)))
+        elif len(self.spins) == 2:
+            # Bosons from previous measurement
+            for probs, _occ in zip([self.evo[-1], self.evo_em[-1]],
+                                    [self.bosons, self.bosons_em]):
+                _occ.append(sum(
+                    (
+                        probs[_b * 2]
+                        + probs[_b * 2 + 1]
+                        + probs[(_b + self.n_bos) * 2]
+                        + probs[(_b + self.n_bos) * 2 + 1]
+                    )
+                    * _b
+                    for _b in range(1, self.n_bos)
+                ))
+            # Z-basis
+            qc_z = qc.copy()
+            qc_m = QuantumCircuit(qnum, len(self.spins))
+            qc_m.barrier()
+            qc_m.measure(qubit=self.spins, cbit=range(len(self.spins)))
+            qc_e_m = qc_m.compose(qc_z, qubits=range(qnum), front=True)
+            # lossless
+            backend_ll = AerSimulator()
+            qc_e_m_ll = transpile(qc_e_m, backend=backend_ll, optimization_level=2)
+            job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
+            result_ll = job_ll.result()
+            counts_ll = result_ll.get_counts(qc_e_m_ll)
+            counts_ll, shots_ll = self.get_post_selection(counts_ll)
+            counts_ll = fillin_counts(counts_ll)
+            # error mitigated
+            _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, self.noise_model)
+            counts_em, shots_em = self.get_post_selection(counts_em)
+            counts_em = fillin_counts(counts_em)
+            for _cnts, _shots, _sz in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em],
+                                          [self.sz, self.sz_em]):
+                _sz.append([
+                    -1*(-(_cnts['00'] + _cnts['10']) + (_cnts['01'] + _cnts['11'])) / _shots,                
+                    -1*(-(_cnts['00'] + _cnts['01']) + (_cnts['10'] + _cnts['11'])) / _shots])
+            # Z-basis spin correlation
+            for _cnts, _shots, _szc in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em],
+                                          [self.szcorr, self.szcorr_em]):
+                # <Sz Sz> = P[00] + P[11] - P[01] - P[10]
+                # <Sz><Sz> = {-P[0] + P[1]}_a * {-P[0] + P[1]}_b
+                #          = {-P[00] - P[01] + P[10] + P[11]}_a * {-P[00] - P[10] + P[01] + P[11]}_b
+                _corr = np.real(((_cnts['00'] + _cnts['11']) - (_cnts['01'] + _cnts['10'])) / _shots)  
+                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] + _cnts['10'] + _cnts['11']) / _shots)
+                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] + _cnts['01'] + _cnts['11']) /_shots)
+                _szc.append(_corr - (_avg_0 * _avg_1))
+        # ----------------------------------
+        # X-basis measurement, spin correlation
+        qc_x = qc.copy()
+        qc_x.h(self.spins)
+        qc_m = QuantumCircuit(qnum, len(self.spins))
+        qc_m.barrier()
+        qc_m.measure(qubit=self.spins, cbit=range(len(self.spins)))
+        qc_e_m = qc_m.compose(qc_x, qubits=range(qnum), front=True)
+        # lossless
+        backend_ll = AerSimulator()
+        qc_e_m_ll = transpile(qc_e_m, backend=backend_ll, optimization_level=2)
+        job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
+        result_ll = job_ll.result()
+        counts_ll = result_ll.get_counts(qc_e_m_ll)
+        counts_ll, shots_ll = self.get_post_selection(counts_ll)
+        counts_ll = fillin_counts(counts_ll)
+        # error mitigated
+        _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, self.noise_model)
+        counts_em, shots_em = self.get_post_selection(counts_em)
+        counts_em = fillin_counts(counts_em)
+        if len(self.spins) == 1:
+            for _cnts, _shots, _sx in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em],
+                                          [self.sx, self.sx_em]):
+                _sx.append(-1*(-_cnts['0'] + _cnts['1']) / _shots)
+        elif len(self.spins) == 2:
+            for _cnts, _shots, _sx in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em],
+                                          [self.sx, self.sx_em]):
+                _sx.append([
+                    -1*(-(_cnts['00'] + _cnts['10']) + (_cnts['01'] + _cnts['11'])) / _shots,                
+                    -1*(-(_cnts['00'] + _cnts['01']) + (_cnts['10'] + _cnts['11'])) /_shots])
+            for _cnts, _shots, _sxc in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em],
+                                          [self.sxcorr, self.sxcorr_em]):
+                _corr = np.real(((_cnts['00'] + _cnts['11']) - (_cnts['01'] + _cnts['10'])) / _shots)  
+                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] + _cnts['10'] + _cnts['11']) / _shots)
+                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] + _cnts['01'] + _cnts['11']) / _shots)
+                _sxc.append(_corr - (_avg_0 * _avg_1))
+        # ----------------------------------
+        # Y-basis measurement, spin correlation
+        qc_y = qc.copy()
+        qc_y.sdg(self.spins) # S^dagger, only difference from X-basis
+        qc_y.h(self.spins)
+        qc_m = QuantumCircuit(qnum, len(self.spins))
+        qc_m.barrier()
+        qc_m.measure(qubit=self.spins, cbit=range(len(self.spins)))
+        qc_e_m = qc_m.compose(qc_y, qubits=range(qnum), front=True)
+        # lossless
+        backend_ll = AerSimulator()
+        qc_e_m_ll = transpile(qc_e_m, backend=backend_ll, optimization_level=2)
+        job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
+        result_ll = job_ll.result()
+        counts_ll = result_ll.get_counts(qc_e_m_ll)
+        counts_ll, shots_ll = self.get_post_selection(counts_ll)
+        counts_ll = fillin_counts(counts_ll)
+        # error mitigated
+        _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, self.noise_model)
+        counts_em, shots_em = self.get_post_selection(counts_em)
+        counts_em = fillin_counts(counts_em)
+        if len(self.spins) == 1:
+            for _cnts, _shots, _sy in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em], 
+                                          [self.sy, self.sy_em]):
+                _sy.append(-1*(-_cnts['0'] + _cnts['1']) / _shots)
+        elif len(self.spins) == 2:
+            for _cnts, _shots, _sy in zip([counts_ll, counts_em], 
+                                          [shots_ll, shots_em], 
+                                          [self.sy, self.sy_em]):
+                _sy.append([
+                    -1*(-(_cnts['00'] + _cnts['10']) + (_cnts['01'] + _cnts['11'])) / _shots,                
+                    -1*(-(_cnts['00'] + _cnts['01']) + (_cnts['10'] + _cnts['11'])) / _shots])
+            for _cnts, _shots, _syc in zip([counts_ll, counts_em], 
+                                           [shots_ll, shots_em], 
+                                           [self.sycorr, self.sycorr_em]):
+                _corr = np.real(((_cnts['00'] + _cnts['11']) - (_cnts['01'] + _cnts['10'])) / _shots)  
+                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] + _cnts['10'] + _cnts['11']) / _shots)
+                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] + _cnts['01'] + _cnts['11']) / _shots)
+                _syc.append(_corr - (_avg_0 * _avg_1))
+        
+        return 
     
-    def meas_spins(self):
-        return 0
-
-    def compare_simulations(self):
-        # Fidelity
-        return 0
+    def compare_simulations(self) -> None:
+        """Fidelity"""
+        if self.qst:
+            for t_step in range(len(self.timesteps)):
+                self.infidelity.append(np.real(dm_fidelity(true=self.dm_exact[t_step], approx=self.dm[t_step], inv=True)))
+                self.infidelity_em.append(np.real(dm_fidelity(true=self.dm_exact[t_step], approx=self.dm_em[t_step], inv=True)))
+        return 
+    
+    def check_results(self) -> None:
+        # Check if there are results
+        print('evo', np.shape(self.evo))
+        print('dm', np.shape(self.dm))
+        print('sz', np.shape(self.sz))
+        print('sx', np.shape(self.sx))
+        print('sy', np.shape(self.sy))
+        print('szcorr', np.shape(self.szcorr))
+        print('sxcorr', np.shape(self.sxcorr))
+        print('sycorr', np.shape(self.sycorr))
+        print('bosons', np.shape(self.bosons))
+        print('infidelity', np.shape(self.infidelity))
+        print('infidelity_em', np.shape(self.infidelity_em))
+        return 

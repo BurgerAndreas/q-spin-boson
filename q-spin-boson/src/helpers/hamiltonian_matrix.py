@@ -3,7 +3,7 @@ import numpy as np
 import math as math
 import functools as ft  # XX = ft.reduce(np.kron, [A, B, C, D, E])
 
-from convention import pz, px, py, gs0, ex1, pm, pp, pppm, pmpp
+from settings.conventions import PZ, PX, PY, GS0, EX1, PM, PP, PPPM, PMPP
 from settings.types import Model, Env, H, Enc
 from settings.parameters import Paras
 
@@ -42,44 +42,44 @@ def hamiltonian_as_matrix(model=Model.SB1S, n_bos=4, paras=Paras.SB1S):
 
     ''' Spin-Boson '''
     def sb1s():  # S-HO
-        term1 = np.kron(pz, boson_id) * 0.5
-        term2 = np.kron(px, boson_id) * 0.5 * paras.value[0]  # epsilon
-        term3 = np.kron(spin_id, ada) * paras.value[paras][1]  # omega
-        term4 = np.kron(px, q) * paras.value[paras][2]  # lambda
+        term1 = np.kron(PZ, boson_id) * 0.5
+        term2 = np.kron(PX, boson_id) * 0.5 * paras.value[0]  # epsilon
+        term3 = np.kron(spin_id, ada) * paras.value[1]  # omega
+        term4 = np.kron(PX, q) * paras.value[2]  # lambda
         return term1 + term2 + term3 + term4
 
     def sb1spz():  # S-HO
         # S1
-        ham = np.kron(pz, boson_id) * 0.5
-        ham += np.kron(px, boson_id) * 0.5 * paras.value[paras][0]  # epsilon
+        ham = np.kron(PZ, boson_id) * 0.5
+        ham += np.kron(PX, boson_id) * 0.5 * paras.value[0]  # epsilon
         # HO
-        ham += np.kron(spin_id, ada) * paras.value[paras][1]  # omega
+        ham += np.kron(spin_id, ada) * paras.value[1]  # omega
         # S1-HO
-        ham += np.kron(pz, q) * paras.value[paras][2]  # lambda
+        ham += np.kron(PZ, q) * paras.value[2]  # lambda
         return ham
 
     def sb1sjc():  # S-HO
         # RIght
         #print('Using Hamiltonian Matrix', 'sb1sjc')
-        ham = np.kron(pz, boson_id) * 0.5
-        ham += np.kron(px, boson_id) * 0.5 * paras.value[paras][0]  # epsilon
-        ham += np.kron(spin_id, ada) * paras.value[paras][1]  # omega
-        ham += ft.reduce(np.kron, [pm, ad]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [pp, a]) * paras.value[paras][2]  # lambda
+        ham = np.kron(PZ, boson_id) * 0.5
+        ham += np.kron(PX, boson_id) * 0.5 * paras.value[0]  # epsilon
+        ham += np.kron(spin_id, ada) * paras.value[1]  # omega
+        ham += ft.reduce(np.kron, [PM, ad]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [PP, a]) * paras.value[2]  # lambda
         return ham
 
     # S1 - HO - S2, spin-boson
     def sb2s():
         # S1, S2
-        term11 = np.kron(pz, np.kron(boson_id, spin_id)) * 0.5
-        term12 = np.kron(spin_id, np.kron(boson_id, pz)) * 0.5
-        term21 = np.kron(px, np.kron(boson_id, spin_id)) * 0.5 * paras.value[paras][0]  # epsilon
-        term22 = np.kron(spin_id, np.kron(boson_id, px)) * 0.5 * paras.value[paras][0]  # epsilon
+        term11 = np.kron(PZ, np.kron(boson_id, spin_id)) * 0.5
+        term12 = np.kron(spin_id, np.kron(boson_id, PZ)) * 0.5
+        term21 = np.kron(PX, np.kron(boson_id, spin_id)) * 0.5 * paras.value[0]  # epsilon
+        term22 = np.kron(spin_id, np.kron(boson_id, PX)) * 0.5 * paras.value[0]  # epsilon
         # HO
-        term3 = np.kron(spin_id, np.kron(ada, spin_id)) * paras.value[paras][1]  # omega
+        term3 = np.kron(spin_id, np.kron(ada, spin_id)) * paras.value[1]  # omega
         # S1-HO, HO-S2
-        term41 = np.kron(px, np.kron(q, spin_id)) * paras.value[paras][2]  # lambda
-        term42 = np.kron(spin_id, np.kron(q, px)) * paras.value[paras][2]  # lambda
+        term41 = np.kron(PX, np.kron(q, spin_id)) * paras.value[2]  # lambda
+        term42 = np.kron(spin_id, np.kron(q, PX)) * paras.value[2]  # lambda
         return term11 + term12 + term21 + term22 + term3 + term41 + term42
 
 
@@ -90,42 +90,42 @@ def hamiltonian_as_matrix(model=Model.SB1S, n_bos=4, paras=Paras.SB1S):
     def jc3s(_hopping=False):  # S-S-S-H
         ham = 0
         # S1, S2, S3
-        ham += ft.reduce(np.kron, [pz, spin_id, spin_id, boson_id]) * 0.5
-        ham += ft.reduce(np.kron, [spin_id, pz, spin_id, boson_id]) * 0.5
-        ham += ft.reduce(np.kron, [spin_id, spin_id, pz, boson_id]) * 0.5
+        ham += ft.reduce(np.kron, [PZ, spin_id, spin_id, boson_id]) * 0.5
+        ham += ft.reduce(np.kron, [spin_id, PZ, spin_id, boson_id]) * 0.5
+        ham += ft.reduce(np.kron, [spin_id, spin_id, PZ, boson_id]) * 0.5
         # HO
-        ham += ft.reduce(np.kron, [spin_id, spin_id, spin_id, ada]) * paras.value[paras][1]  # omega
+        ham += ft.reduce(np.kron, [spin_id, spin_id, spin_id, ada]) * paras.value[1]  # omega
         # S1-HO, S2-HO, S3-HO
-        ham += ft.reduce(np.kron, [pm, spin_id, spin_id, ad]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [pp, spin_id, spin_id, a]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [spin_id, pm, spin_id, ad]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [spin_id, pp, spin_id, a]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [spin_id, spin_id, pm, ad]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [spin_id, spin_id, pp, a]) * paras.value[paras][2]  # lambda
+        ham += ft.reduce(np.kron, [PM, spin_id, spin_id, ad]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [PP, spin_id, spin_id, a]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [spin_id, PM, spin_id, ad]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [spin_id, PP, spin_id, a]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [spin_id, spin_id, PM, ad]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [spin_id, spin_id, PP, a]) * paras.value[2]  # lambda
         if _hopping:
             # hopping S1 - S2, S2 - S3
-            ham += ft.reduce(np.kron, [pm, pp, spin_id, boson_id]) * paras.value[paras][3]  # v
-            ham += ft.reduce(np.kron, [pp, pm, spin_id, boson_id]) * paras.value[paras][3]  # v
-            ham += ft.reduce(np.kron, [spin_id, pm, pp, boson_id]) * paras.value[paras][3]  # v
-            ham += ft.reduce(np.kron, [spin_id, pp, pm, boson_id]) * paras.value[paras][3]  # v
+            ham += ft.reduce(np.kron, [PM, PP, spin_id, boson_id]) * paras.value[3]  # v
+            ham += ft.reduce(np.kron, [PP, PM, spin_id, boson_id]) * paras.value[3]  # v
+            ham += ft.reduce(np.kron, [spin_id, PM, PP, boson_id]) * paras.value[3]  # v
+            ham += ft.reduce(np.kron, [spin_id, PP, PM, boson_id]) * paras.value[3]  # v
         return ham
 
     def jc2s(_hopping=False): # S-S-H
         ham = 0
         # S1, S2, S3
-        ham += ft.reduce(np.kron, [pz, boson_id, spin_id]) * 0.5
-        ham += ft.reduce(np.kron, [spin_id, boson_id, pz]) * 0.5
+        ham += ft.reduce(np.kron, [PZ, boson_id, spin_id]) * 0.5
+        ham += ft.reduce(np.kron, [spin_id, boson_id, PZ]) * 0.5
         # HO
-        ham += ft.reduce(np.kron, [spin_id, ada, spin_id]) * paras.value[paras][1]  # omega
+        ham += ft.reduce(np.kron, [spin_id, ada, spin_id]) * paras.value[1]  # omega
         # S1-HO, S2-HO
-        ham += ft.reduce(np.kron, [pm, ad, spin_id]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [pp, a, spin_id]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [spin_id, ad, pm]) * paras.value[paras][2]  # lambda
-        ham += ft.reduce(np.kron, [spin_id, a, pp]) * paras.value[paras][2]  # lambda
+        ham += ft.reduce(np.kron, [PM, ad, spin_id]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [PP, a, spin_id]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [spin_id, ad, PM]) * paras.value[2]  # lambda
+        ham += ft.reduce(np.kron, [spin_id, a, PP]) * paras.value[2]  # lambda
         if _hopping:
             # hopping S1 - S2
-            ham += ft.reduce(np.kron, [pm, boson_id, pp]) * paras.value[paras][3]  # v
-            ham += ft.reduce(np.kron, [pp, boson_id, pm]) * paras.value[paras][3]  # v
+            ham += ft.reduce(np.kron, [PM, boson_id, PP]) * paras.value[3]  # v
+            ham += ft.reduce(np.kron, [PP, boson_id, PM]) * paras.value[3]  # v
         return ham
 
 

@@ -26,18 +26,31 @@ from qiskit.synthesis import QDrift, LieTrotter, SuzukiTrotter
 
 from settings.types import Enc, Env, H, Model, Steps
 from settings.parameters import Paras
-from settings.conventions import gs0, ex1
+from settings.conventions import GS0, EX1, PM, PZ, PX, PY
 from src.helpers.noise_modeling import modified_noise_model
 from src.helpers.binary import get_seq, unary_sequence, to_binary, sb_sequence
 from src.model_base import Simulation
 
 
 class SpinBosonSimulation(Simulation):
-    def __init__(self, model, n_bos, env, paras, gamma, enc, h, steps, dt, eta,
-                 errfctr):
-        super().init(model, n_bos, env, paras, gamma, enc, h, steps, dt, eta,
+    def __init__(self, 
+                 model = Model.SB1S, 
+                 n_bos = 4, 
+                 env = Env.ADC, 
+                 paras = Paras.SB1S, 
+                 gamma = 1., 
+                 enc = Enc.BINARY, 
+                 h = H.FRSTORD, 
+                 steps = Steps.LOOP, 
+                 dt = 0.3, 
+                 eta = 1,
+                 errfctr = .1):
+        super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, eta,
                      errfctr)
         self.backend = FakeJakarta()
+        # ------------------------------------------------------------
+        # initialize for simulation
+        # ------------------------------------------------------------
         self.set_default_simulation_parameters()
     
     def set_dimensions(self) -> None:
@@ -51,7 +64,7 @@ class SpinBosonSimulation(Simulation):
             self.qubits_system = [x for x in range(0, self.n_qubits_system)]
             n_qubits_bos = m.ceil(m.sqrt(self.n_bos))
             self.spins = [n_qubits_bos]
-            self.s_a_pairs = [n_qubits_bos, self.n_qubits_system]
+            self.s_a_pairs = [[n_qubits_bos, self.n_qubits_system]]
             self.qc_empty = QuantumCircuit(QuantumRegister(n_qubits_bos, 'b'),
                                            QuantumRegister(1, 's'),
                                            QuantumRegister(1, 'a'))
@@ -68,7 +81,7 @@ class SpinBosonSimulation(Simulation):
             # spin and aux
             n_qubits_bos = self.bos
             self.spins = [n_qubits_bos]
-            self.s_a_pairs = [n_qubits_bos, self.n_qubits_system]
+            self.s_a_pairs = [[n_qubits_bos, self.n_qubits_system]]
             self.qc_empty = QuantumCircuit(QuantumRegister(n_qubits_bos, 'b'),
                                            QuantumRegister(1, 's'),
                                            QuantumRegister(1, 'a'))
@@ -97,8 +110,8 @@ class SpinBosonSimulation(Simulation):
         """Set initial state of system.
         Can be overwritten by passing vector for system + environment."""
         bb = np.eye(self.n_bos, dtype=int) # boson basis vectors (onehot)
-        self.i_system = ft.reduce(np.kron, [ex1, bb[0]])
-        i_full = ft.reduce(np.kron, [gs0, self.i_system])
+        self.i_system: NDArray = ft.reduce(np.kron, [EX1, bb[0]])
+        i_full: NDArray = ft.reduce(np.kron, [GS0, self.i_system])
         if initial is not None:
             if initial.shape != i_full.shape:
                 raise ValueError(
@@ -106,7 +119,7 @@ class SpinBosonSimulation(Simulation):
             i_full = initial
         # standard binary encoding
         i_full_binary_rev = to_binary(
-            np.nonzero(i_full[0])[1][0], self.n_qubits)
+            np.nonzero(i_full)[0][0], self.n_qubits)
         if self.enc == Enc.GRAY:
             binary_keys_system = sb_sequence(numbers=len(self.ordered_keys))
             ordered_keys_full = [f'0{_key}' for _key in self.ordered_keys]
@@ -114,16 +127,35 @@ class SpinBosonSimulation(Simulation):
             ones_in_binary = binary_keys_full.index(i_full_binary_rev)
             i_full_binary_rev = ordered_keys_full[ones_in_binary]
         elif self.enc == Enc.SPLITUNARY:
-            i_full = np.hstack((gs0, ex1, bb[0]))
+            i_full = np.hstack((GS0, EX1, bb[0]))
             i_full_binary_rev = ''.join(str(int(p)) for p in i_full)
         elif self.enc == Enc.FULLUNARY:
             i_full_binary_rev = ''.join(str(int(p)) for p in i_full[0])
         # qiskit ordering
         self.i_full_binary = i_full_binary_rev[::-1]  
+        # no environment interaction
+        if self.env == Env.NOENV:
+            self.s_a_pairs = None
+        return
+
+    def build_operators(self) -> None:
+        """Build spin and boson number operators.
+        Used for exact reference and labels.
+        """
+        boson_id = np.eye(self.n_bos)
+        spin_id = np.eye(2)
+        ada = np.zeros([self.n_bos, self.n_bos])
+        for _b in range(self.n_bos):
+            ada[_b, _b] = _b
+        self.sz_ops = [ft.reduce(np.kron, [PZ, boson_id])]
+        self.sx_ops = [ft.reduce(np.kron, [PX, boson_id])]
+        self.sy_ops = [ft.reduce(np.kron, [PY, boson_id])]
+        self.ada = ft.reduce(np.kron, [spin_id, ada])
+        self.l_ops = [self.gamma * np.kron(PM, boson_id)]
         return
 
 
-class SBHamiltonianSimulation(SpinBosonSimulation):
-    def __init__(self, model):
-        super().init(model)
+# class SBHamiltonianSimulation(SpinBosonSimulation):
+#     def __init__(self, model):
+#         super().__init__(model)
   

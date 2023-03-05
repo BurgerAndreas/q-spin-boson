@@ -8,10 +8,10 @@ import pickle
 from settings.types import Enc, Model
 from settings.parameters import Paras
 from settings.conventions import pz_convention
-from helpers.binary import get_seq
-import hamiltonian_matrix as hm
+from src.helpers.binary import get_seq
+from src.helpers.hamiltonian_matrix import build_a, build_ad, build_ada
 
-# Sermionic operators
+# Spin operators
 PXS = sym.IndexedBase('sigma^x', commutative=False)
 PYS = sym.IndexedBase('sigma^y', commutative=False)
 # PZS = 1, 0, 0, -1 | PZS = -1, 0, 0, 1
@@ -196,7 +196,7 @@ def transpose_ham_string(ham_string):
 
 
 def hamiltonian_as_paulis(model=Model.SB1S, n_bos=4, paras=Paras.SB1S, 
-                          enc=Enc.SB, aslatex=False):
+                          enc=Enc.BINARY, aslatex=False):
     """Get hamiltonian as pauli strings."""
     # get encoding
     en_seq = get_seq(enc, numbers=n_bos)
@@ -219,11 +219,11 @@ def hamiltonian_as_paulis(model=Model.SB1S, n_bos=4, paras=Paras.SB1S,
         first_qubit_boson = 1
         n_qubits = n_qubits_boson + 2
     # bosonic operators to Pauli
-    a_matrix = hm.build_a(n_bos=n_bos)
+    a_matrix = build_a(n_bos=n_bos)
     a_pauli = matrix_to_pauli(a_matrix, enc, en_seq, first_qubit_boson)
-    ad_matrix = hm.build_ad(n_bos=n_bos)
+    ad_matrix = build_ad(n_bos=n_bos)
     ad_pauli = matrix_to_pauli(ad_matrix, enc, en_seq, first_qubit_boson)
-    n_matrix = hm.build_ada(n_bos=n_bos)
+    n_matrix = build_ada(n_bos=n_bos)
     n_pauli = matrix_to_pauli(n_matrix, enc, en_seq, first_qubit_boson)
     q_matrix = a_matrix + ad_matrix
     q_pauli = matrix_to_pauli(q_matrix, enc, en_seq, first_qubit_boson)

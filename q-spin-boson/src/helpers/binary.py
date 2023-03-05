@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from itertools import product
 
 from settings.types import Enc
 
@@ -63,3 +64,13 @@ def get_seq(encoding: Enc, numbers=None, length=None, rev=False):
     elif encoding == Enc.GRAY:
         seq = gray_sequence(numbers=numbers, length=length, rev=rev)
     return seq
+
+
+def fillin_counts(cnts):
+    """Fill in missing counts (possible combinations of 0s, 1s) with =0."""
+    qubits = len(list(cnts.keys())[0])
+    # unique combinations of 0s and 1s
+    uc = [''.join(str(i) for i in c) for c in product([0, 1], repeat=qubits)]
+    for c in uc:
+        if c not in cnts: cnts[c] = 0
+    return cnts
