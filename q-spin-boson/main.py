@@ -11,6 +11,7 @@ def main():
     sim = SpinBosonSimulation()
     sim.get_simulation()
     sim.check_results()
+    sim.print_results()
 
 if __name__ == '__main__':
     main()

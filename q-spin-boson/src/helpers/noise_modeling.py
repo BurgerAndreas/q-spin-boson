@@ -2,17 +2,19 @@ from warnings import warn, catch_warnings, filterwarnings
 from numpy import allclose, inf, exp
 
 from qiskit.quantum_info import average_gate_fidelity
-# from qiskit.providers.aer.noise import NoiseModel, ReadoutError, QuantumError
-# from qiskit.providers.aer.noise.device.parameters import readout_error_values, gate_param_values, \
-#     thermal_relaxation_values, _NANOSECOND_UNITS
-# from qiskit.providers.aer.noise.device import basic_device_readout_errors, readout_error_values
-# from qiskit.providers.aer.noise.errors import thermal_relaxation_error, depolarizing_error
-from qiskit_aer.noise import NoiseModel, ReadoutError, QuantumError
-from qiskit_aer.noise.device.parameters import readout_error_values, gate_param_values, \
-    thermal_relaxation_values, _NANOSECOND_UNITS
-from qiskit_aer.noise.device import basic_device_readout_errors, readout_error_values
-from qiskit_aer.noise.errors import thermal_relaxation_error, depolarizing_error
 from qiskit.providers.fake_provider import FakeToronto
+# old qiskit versions
+from qiskit.providers.aer.noise import NoiseModel, ReadoutError, QuantumError
+from qiskit.providers.aer.noise.device.parameters import readout_error_values, gate_param_values, \
+    thermal_relaxation_values, _NANOSECOND_UNITS
+from qiskit.providers.aer.noise.device import basic_device_readout_errors, readout_error_values
+from qiskit.providers.aer.noise.errors import thermal_relaxation_error, depolarizing_error
+# new qiskit versions
+# from qiskit_aer.noise import NoiseModel, ReadoutError, QuantumError
+# from qiskit_aer.noise.device.parameters import readout_error_values, gate_param_values, \
+#     thermal_relaxation_values, _NANOSECOND_UNITS
+# from qiskit_aer.noise.device import basic_device_readout_errors, readout_error_values
+# from qiskit_aer.noise.errors import thermal_relaxation_error, depolarizing_error
 
 
 # taken from

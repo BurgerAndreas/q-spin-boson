@@ -1,7 +1,8 @@
 from qiskit import QuantumCircuit, QuantumRegister, Aer, transpile, assemble
 from qiskit.ignis.mitigation.measurement import complete_meas_cal, CompleteMeasFitter
 from qiskit.test.mock import FakeJakarta, FakeToronto
-from qiskit_aer import AerSimulator
+# from qiskit_aer import AerSimulator # new qiskit versions
+from qiskit.providers.aer import AerSimulator # old qiskit versions
 
 # https://qiskit.org/textbook/ch-quantum-hardware/measurement-error-mitigation.html
 

@@ -33,3 +33,8 @@ class Enc(Enum):
 class Steps(Enum):
     LOOP = 'loop'
     NFIXED = 'nfixed'
+
+class Axis(Enum):
+    X = 'x'
+    Y = 'y'
+    Z = 'z'

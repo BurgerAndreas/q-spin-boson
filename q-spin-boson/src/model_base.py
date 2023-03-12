@@ -21,10 +21,10 @@ from qiskit.opflow import I, X, Y, Z, Zero, One, Plus, Minus, PauliTrotterEvolut
 from qiskit.circuit import Parameter
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.providers.fake_provider import FakeJakarta, FakeToronto
-from qiskit_aer.noise import NoiseModel
-from qiskit_aer import AerSimulator
-# qiskit.ignis.mitigation	qiskit_terra.mitigation
-# last version: qiskit==0.36.2 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.20.1
+from qiskit.providers.aer import AerSimulator # old qiskit versions
+from qiskit.providers.aer.noise import NoiseModel # old qiskit versions
+# from qiskit_aer.noise import NoiseModel # new qiskit versions
+# from qiskit_aer import AerSimulator # new qiskit versions
 from qiskit.ignis.mitigation.measurement import complete_meas_cal, CompleteMeasFitter
 from qiskit_experiments.library import StateTomography
 from qiskit.ignis.verification.tomography import state_tomography_circuits, StateTomographyFitter
@@ -68,7 +68,7 @@ class Simulation():
                  steps: Steps, 
                  dt: float, 
                  eta: int, 
-                 errfctr: float = 1.):
+                 noise: float = 1.):
         """Create a Simulation object.
         To load / simulate the model, use the get_simulation() method.
         Args:
@@ -90,7 +90,7 @@ class Simulation():
         self.steps = steps
         self.dt = np.round(dt, 2)
         self.eta = eta
-        self.errfctr = errfctr
+        self.noise = noise
         # --------------------------------------------------------------------
         # parameters
         self.qst = True
@@ -160,18 +160,15 @@ class Simulation():
         self.labels = []
         # --------------------------------------------------------------------
         self.load_status: int = 0
+        self.fix_parameters()
+        self.update_name()
         
     def get_simulation(self):
         self.fix_parameters()
         self.update_name()
-        self.load_status = self.load()
-        if self.load_status == 404:
-            self.build_operators()
-            self.set_labels()
-            self.simulate_qc()
-            self.simulate_exact_linblad()
-            self.compare_simulations()
-            self.load_status = self.save()
+        # self.load_status = self.load()
+        if self.load_status != 200:
+            self.simulate_model()
         return self
 
     def fix_parameters(self):
@@ -191,7 +188,7 @@ class Simulation():
             name += f'_s{self.steps}_d{self.dt:.2f}'
         else:
             name += f'_s{self.steps}_n{self.eta}'
-        name += f'_e{self.errfctr:.2f}_{self.backend.backend_name}'
+        name += f'_e{self.noise:.2f}_{self.backend.backend_name}'
         self.name = name.lower()
         return name
 
@@ -218,6 +215,15 @@ class Simulation():
 
     def circuit_to_image(self):
         return 0
+    
+    def simulate_model(self) -> None:
+        self.build_operators()
+        self.set_labels()
+        self.simulate_qc()
+        self.simulate_exact_linblad()
+        self.compare_simulations()
+        self.load_status = self.save()
+        return
     
     def build_operators(self) -> None:
         """Build spin and boson number operators.
@@ -275,11 +281,11 @@ class Simulation():
         Parameters can be overwritten by user.
         """
         # Get Noise Model
-        if self.errfctr == 1.:
+        if self.noise == 1.:
             self.noise_model = AerSimulator.from_backend(self.backend)
         else:
             self.noise_model = AerSimulator(
-                noise_model=modified_noise_model(self.backend, self.errfctr))
+                noise_model=modified_noise_model(self.backend, self.noise))
         # Dimensionality
         self.set_dimensions()
         # Hamiltonian
@@ -343,9 +349,9 @@ class Simulation():
                             qc.x(pos)
                 # Add Trotter steps
                 if t_step > 0:
-                    for eta_step in range(eta):
+                    for eta_step in range(self.eta):
                         reset_a = eta_step > 1
-                        qc = self.add_trotter_step(qc, t_point/eta, reset_a)
+                        qc = self.add_trotter_step(qc, t_point/self.eta, reset_a)
                 # Measure
                 self.meas_circuit(qc, self.qubits_system)
         return
@@ -684,6 +690,7 @@ class Simulation():
     
     def check_results(self) -> None:
         # Check if there are results
+        print('timesteps', np.shape(self.timesteps))
         print('evo', np.shape(self.evo))
         print('dm', np.shape(self.dm))
         print('sz', np.shape(self.sz))
@@ -696,3 +703,19 @@ class Simulation():
         print('infidelity', np.shape(self.infidelity))
         print('infidelity_em', np.shape(self.infidelity_em))
         return 
+    
+    def print_results(self) -> None:
+        # Print results
+        print('timesteps\n', self.timesteps)
+        print('evo\n', self.evo)
+        print('dm\n', self.dm)
+        print('sz\n', self.sz)
+        print('sx\n', self.sx)
+        print('sy\n', self.sy)
+        print('szcorr\n', self.szcorr)
+        print('sxcorr\n', self.sxcorr)
+        print('sycorr\n', self.sycorr)
+        print('bosons\n', self.bosons)
+        print('infidelity\n', self.infidelity)
+        print('infidelity_em\n', self.infidelity_em)
+        return

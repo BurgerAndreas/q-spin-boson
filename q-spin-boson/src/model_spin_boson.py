@@ -17,8 +17,11 @@ from qiskit.opflow import I, X, Y, Z, Zero, One, Plus, Minus, PauliTrotterEvolut
 from qiskit.circuit import Parameter
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.providers.fake_provider import FakeJakarta, FakeToronto
-from qiskit_aer.noise import NoiseModel
-from qiskit_aer import AerSimulator
+from qiskit.providers.aer import AerSimulator # old qiskit versions
+from qiskit.providers.aer.noise import NoiseModel # old qiskit versions
+# from qiskit.providers.aer.utils import insert_noise # old qiskit versions
+# from qiskit_aer.noise import NoiseModel # new qiskit versions
+# from qiskit_aer import AerSimulator # new qiskit versions
 # qiskit.ignis.mitigation	qiskit_terra.mitigation
 # last version: qiskit==0.36.2 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.20.1
 from qiskit.ignis.mitigation.measurement import complete_meas_cal, CompleteMeasFitter
@@ -44,9 +47,9 @@ class SpinBosonSimulation(Simulation):
                  steps = Steps.LOOP, 
                  dt = 0.3, 
                  eta = 1,
-                 errfctr = .1):
+                 noise = .1):
         super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, eta,
-                     errfctr)
+                     noise)
         self.backend = FakeJakarta()
         # ------------------------------------------------------------
         # initialize for simulation

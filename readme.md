@@ -4,73 +4,47 @@ Minimal version of the code used in my master thesis and in the paper [Digital Q
 
 ## Installation
 
-
-### Conda
+### Pip
 
 <https://qiskit.org/documentation/release_notes.html>
 
 ```bash
-pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments
+pip install -r requirements.txt
 ```
 
+### Conda
+
 ```bash
-pip install qiskit 'qiskit[visualization]' qiskit-ignis==0.7.1 qiskit-experiments mypy pylint
-conda install -c conda-forge matplotlib seaborn python-dotenv jupyter notebook qutip -y
+conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebook qutip -y
+
+python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
 ```
 
 ### Docker
 
 todo
 
-## Future Work
+## Structure
 
-### Acceptance Criteria
-
-- [ ] Type hints
-- [ ] Docstrings
-
-### Next Steps
-
-- [ ] SB2S
-- [ ] JC2S
-- [ ] SB1SJC (inheret from SB1S)
-- [ ] SB1SPZ (inheret from SB1S)
-
-- [ ] Circuit to latex
-- [ ] Circuit to image
-- [ ] Plotting
-- [ ] Docker
-
-## Fixes
-
-in
-
-```path
-<conda-environment>/lib/python3.10/site-packages/qiskit/ignis/verification/tomography/basis/circuits.py
-/Users/a-burger-zeb/opt/anaconda3/envs/qiskit-sf/lib/python3.10/site-packages/qiskit/ignis/verification/tomography/basis/circuits.py
+```bash
+q-spin-boson/
+|-- saved-models/ # saved simulations (pickle files)
+|   |-- ...
+|
+|-- settings/ # basically code which is not functions
+|   |-- ...
+|
+|-- src/
+|   |-- helpers/ # functions. called by model_base.py
+|   |   |-- ...
+|   |
+|   |-- model_base.py # simulation base class. called by model_<...>.py
+|   |-- model_<...>.py # simulations. called by main.py
+|   |-- plotting.py # plot simulations
+|
+|-- main.py
 ```
 
-line 467, function `_tomography_circuits`
+## Todos
 
-```python
-# Add circuit being tomographed
-# prep += circuit # REMOVED
-# # meas_qubits, measured_qubits
-prep = circuit.compose(prep, measured_qubits, front=True) # ADDED
-# Generate Measurement circuit
-for meas_label in meas_labels:
-    meas = QuantumCircuit(*registers)
-    if meas_label is not None:
-        meas.barrier(*qubit_registers)
-        for j in range(num_qubits):
-            # meas += measurement(meas_label[j], # REMOVED
-            #                     meas_qubits[j], 
-            #                     clbits[j]) 
-            meas_q = measurement(meas_label[j], # ADDED
-                                    meas_qubits[j], 
-                                    clbits[j])
-            meas = meas.compose(meas_q, meas_qubits[j], clbits[j]) 
-    # circ = prep + meas # REMOVED
-    # meas_qubits, measured_qubits
-    circ = prep.compose(meas, measured_qubits) # ADDED
-```
+[] __init__.py
