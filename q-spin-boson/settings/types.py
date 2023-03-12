@@ -35,6 +35,6 @@ class Steps(Enum):
     NFIXED = 'nfixed'
 
 class Axis(Enum):
-    X = 'x'
-    Y = 'y'
-    Z = 'z'
+    XAX = 'x'
+    YAX = 'y'
+    ZAX = 'z'

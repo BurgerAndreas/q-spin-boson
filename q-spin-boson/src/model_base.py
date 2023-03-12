@@ -48,6 +48,7 @@ load_dotenv(DIR_ENV)
 DIR_SAVED_MODELS = os.getenv('DIR_SAVED_MODELS', DIR_ENV)
 DIR_PLOTS = os.getenv('DIR_PLOTS', DIR_ENV)
 DIR_PLOTS_CIRCUIT = os.getenv('DIR_PLOTS_CIRCUIT', DIR_ENV)
+PIC_FILE = os.getenv('PIC_FILE', DIR_ENV)
 
 
 class Simulation():
@@ -210,11 +211,75 @@ class Simulation():
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
         return 201
 
-    def circuit_to_latex(self):
-        return 0
+    def circuit_example(
+            self, 
+            initial: bool = False, 
+            backend = AerSimulator()) -> QuantumCircuit:
+        """Circuit for one trotter step.
+        Time t = 1.
+        """
+        # circuit for one trotter step
+        qc = self.qc_empty.copy()
+        if initial:
+            for pos, c in enumerate(self.i_full_binary):
+                    if c == '1':
+                        qc.x(pos)
+        qc = self.add_trotter_step(qc, t=1, reset_a=True)
+        # transpile onto device gates and layout
+        qc = transpile(qc, backend=backend, optimization_level=3, 
+                       basis_gates=['cx', 'id', 'x', 'sx', 'rz', 'reset'])
+        return qc
+    
+    def get_gates(
+            self,
+            initial: bool = False, 
+            backend = AerSimulator()) -> tuple[int, dict]:
+        """Gates necessary for one trotter step."""
+        qc = self.circuit_example(self, initial, backend)
+        return qc.depth(), qc.count_ops()
 
-    def circuit_to_image(self):
-        return 0
+    def save_layout(
+            self, 
+            initial: bool = False, 
+            backend = AerSimulator()) -> None:
+        """Qubit connectivity and circuit qubit mapping onto device."""
+        # device gate map
+        fig = plot_gate_map(backend, 
+            filename=f'{DIR_PLOTS_CIRCUIT}{self.name}_gatemap{PIC_FILE}')
+        # fig.tight_layout()
+        # fig.show()
+        # qubit mapping onto device
+        qc = self.circuit_example(self, initial, backend)
+        fig = plot_circuit_layout(qc, backend)
+        fig.savefig(fname=f'{DIR_PLOTS_CIRCUIT}{self.name}_layout{PIC_FILE}')
+        # fig.show()
+        return 
+
+    def save_circuit_latex(
+            self, 
+            initial: bool = False, 
+            backend = AerSimulator()) -> str:
+        """Circuit for one trotter step as latex."""
+        qc = self.circuit_example(self, initial, backend)
+        latex_source = qc.draw('latex_source', fold=20)
+        for number in range(qc.num_qubits):
+            look_for = "<<<{" + str(number) + "}"
+            latex_source = latex_source.replace(look_for,"<<<{}")
+        with open(f'{DIR_PLOTS_CIRCUIT}{self.name}.tex', 'w') as f:
+            f.write(latex_source)
+        return latex_source
+
+    def save_circuit_image(
+            self, 
+            initial: bool = False, 
+            backend = AerSimulator()) -> None:
+        """Circuit for one trotter step as an image."""
+        qc = self.circuit_example(self, initial, backend)
+        qc.draw('mpl', 
+                filename=f'{DIR_PLOTS_CIRCUIT}{self.name}{PIC_FILE}', 
+                style="bw") #  style="bw", "iqx"
+        plt.show()
+        return
     
     def simulate_model(self) -> None:
         self.build_operators()
@@ -327,8 +392,8 @@ class Simulation():
         """Calculate the model"""
         # Loop over all time steps
         if self.steps == Steps.LOOP:
-            # Set initial state
             qc = self.qc_empty.copy()
+            # Set initial state
             for pos, c in enumerate(self.i_full_binary):
                     if c == '1':
                         qc.x(pos)
