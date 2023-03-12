@@ -48,8 +48,8 @@ class SpinBosonSimulation(Simulation):
                  dt = 0.3, 
                  eta = 1,
                  noise = .1):
-        super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, eta,
-                     noise)
+        super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, 
+                         eta, noise)
         self.backend = FakeJakarta()
         # ------------------------------------------------------------
         # initialize for simulation

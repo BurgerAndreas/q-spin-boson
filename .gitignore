@@ -1,0 +1,10 @@
+qiskit-backup-main/
+#
+./q-spin-boson/settings/ibmq_auth.env
+q-spin-boson/settings/ibmq_auth.env
+#
+q-spin-boson/notes
+#
+*.DS_Store
+*__pycache__/
+*.vscode

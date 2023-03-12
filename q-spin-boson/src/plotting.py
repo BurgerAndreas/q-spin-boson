@@ -1,4 +1,7 @@
 
+
+# print('Time-averaged infidelity noiseless:', np.sum(fidelity_evo) / np.shape(fidelity_evo)[0])
+
 def plot(sims: List[Simulation], ):
     """
     Time-averaged infidelity over the timestep size dt in noiseless simulations.

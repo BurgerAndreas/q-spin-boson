@@ -161,13 +161,11 @@ class Simulation():
         self.labels = []
         # --------------------------------------------------------------------
         self.load_status: int = 0
-        self.fix_parameters()
-        self.update_name()
         
     def get_simulation(self):
         self.fix_parameters()
         self.update_name()
-        # self.load_status = self.load()
+        self.load_status = self.load()
         if self.load_status != 200:
             self.simulate_model()
         return self
@@ -186,9 +184,9 @@ class Simulation():
         # simulation parameters
         name += f'_{self.h.name}'
         if self.steps == Steps.LOOP:
-            name += f'_s{self.steps}_d{self.dt:.2f}'
+            name += f'_s{self.steps.name}_d{self.dt:.2f}'
         else:
-            name += f'_s{self.steps}_n{self.eta}'
+            name += f'_s{self.steps.name}_n{self.eta}'
         name += f'_e{self.noise:.2f}_{self.backend.backend_name}'
         self.name = name.lower()
         return name
@@ -213,8 +211,8 @@ class Simulation():
 
     def circuit_example(
             self, 
-            initial: bool = False, 
-            backend = AerSimulator()) -> QuantumCircuit:
+            backend = AerSimulator(), 
+            initial: bool = False) -> QuantumCircuit:
         """Circuit for one trotter step.
         Time t = 1.
         """
@@ -231,17 +229,17 @@ class Simulation():
         return qc
     
     def get_gates(
-            self,
-            initial: bool = False, 
-            backend = AerSimulator()) -> tuple[int, dict]:
+            self, 
+            backend = AerSimulator(),
+            initial: bool = False) -> tuple[int, dict]:
         """Gates necessary for one trotter step."""
-        qc = self.circuit_example(self, initial, backend)
+        qc = self.circuit_example(backend, initial)
         return qc.depth(), qc.count_ops()
 
     def save_layout(
             self, 
-            initial: bool = False, 
-            backend = AerSimulator()) -> None:
+            backend,
+            initial: bool = False) -> None:
         """Qubit connectivity and circuit qubit mapping onto device."""
         # device gate map
         fig = plot_gate_map(backend, 
@@ -249,7 +247,7 @@ class Simulation():
         # fig.tight_layout()
         # fig.show()
         # qubit mapping onto device
-        qc = self.circuit_example(self, initial, backend)
+        qc = self.circuit_example(backend, initial)
         fig = plot_circuit_layout(qc, backend)
         fig.savefig(fname=f'{DIR_PLOTS_CIRCUIT}{self.name}_layout{PIC_FILE}')
         # fig.show()
@@ -257,10 +255,10 @@ class Simulation():
 
     def save_circuit_latex(
             self, 
-            initial: bool = False, 
-            backend = AerSimulator()) -> str:
+            backend = AerSimulator(),
+            initial: bool = False) -> str:
         """Circuit for one trotter step as latex."""
-        qc = self.circuit_example(self, initial, backend)
+        qc = self.circuit_example(backend, initial)
         latex_source = qc.draw('latex_source', fold=20)
         for number in range(qc.num_qubits):
             look_for = "<<<{" + str(number) + "}"
@@ -271,14 +269,14 @@ class Simulation():
 
     def save_circuit_image(
             self, 
-            initial: bool = False, 
-            backend = AerSimulator()) -> None:
+            backend = AerSimulator(), 
+            initial: bool = False) -> None:
         """Circuit for one trotter step as an image."""
-        qc = self.circuit_example(self, initial, backend)
-        qc.draw('mpl', 
-                filename=f'{DIR_PLOTS_CIRCUIT}{self.name}{PIC_FILE}', 
-                style="bw") #  style="bw", "iqx"
-        plt.show()
+        qc = self.circuit_example(backend, initial)
+        fig = qc.draw('mpl', 
+                      filename=f'{DIR_PLOTS_CIRCUIT}{self.name}{PIC_FILE}', 
+                      style="bw") #  style="bw", "iqx"
+        fig.show()
         return
     
     def simulate_model(self) -> None:
@@ -345,6 +343,8 @@ class Simulation():
         Called in __init__ of child classes. 
         Parameters can be overwritten by user.
         """
+        self.fix_parameters()
+        self.update_name()
         # Get Noise Model
         if self.noise == 1.:
             self.noise_model = AerSimulator.from_backend(self.backend)

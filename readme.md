@@ -17,12 +17,8 @@ pip install -r requirements.txt
 ```bash
 conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebook qutip -y
 
-python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
+python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments pylatexenc matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
 ```
-
-### Docker
-
-todo
 
 ## Structure
 
@@ -47,4 +43,8 @@ q-spin-boson/
 
 ## Todos
 
-[] __init__.py
+[ ] jupyter notebook env variables
+[ ] __init__.py
+[ ] matplotlib show plots as an env setting
+[ ] code timing
+[ ] docker
