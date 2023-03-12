@@ -8,3 +8,14 @@ q-spin-boson/notes
 *.DS_Store
 *__pycache__/
 *.vscode
+
+# # remove any existing files from the repo, skipping over ones not in repo
+# find . -name .DS_Store -print0 | xargs -0 git rm --ignore-unmatch
+# find . -name .vscode -print0 | xargs -0 git rm --ignore-unmatch
+# find . -name __pycache__ -print0 | xargs -0 git rm  -r --ignore-unmatch
+# # specify a global exclusion list
+# git config --global core.excludesfile ~/.gitignore
+# # adding .DS_Store to that list
+# echo .DS_Store >> ~/.gitignore
+# echo .vscode >> ~/.gitignore
+# echo .__pycache__/ >> ~/.gitignore
