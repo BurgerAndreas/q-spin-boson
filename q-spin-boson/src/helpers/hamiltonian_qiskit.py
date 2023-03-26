@@ -198,6 +198,9 @@ def transpose_ham_string(ham_string):
 def hamiltonian_as_paulis(model=Model.SB1S, n_bos=4, paras=Paras.SB1S, 
                           enc=Enc.BINARY, aslatex=False):
     """Get hamiltonian as pauli strings."""
+    if model == Model.TWOLVL: # Just a single spin (qubit), no Hamiltonian
+        # for eval() to work, we need to add the parantheses
+        return 'I'
     # get encoding
     en_seq = get_seq(enc, numbers=n_bos)
     n_qubits_boson = len(en_seq[0])
@@ -244,8 +247,9 @@ def hamiltonian_as_paulis(model=Model.SB1S, n_bos=4, paras=Paras.SB1S,
         # HO
         h_pauli += n_pauli * paras.value[1]  # omega
         # S1-HO
-        h_pauli += ad_pauli * 0.5*(PXS[s1] - (CMPLX*PYS[s1])) * paras.value[2]  # lambda
-        h_pauli += a_pauli * 0.5*(PXS[s1] + (CMPLX*PYS[s1])) * paras.value[2]  # lambda
+        # lambda
+        h_pauli += ad_pauli * 0.5*(PXS[s1] - (CMPLX*PYS[s1])) * paras.value[2]  
+        h_pauli += a_pauli * 0.5*(PXS[s1] + (CMPLX*PYS[s1])) * paras.value[2]  
     elif model == Model.SB1S: # H-S
         # S1
         h_pauli += PZS[s1] * 0.5 * pz_convention
@@ -275,26 +279,28 @@ def hamiltonian_as_paulis(model=Model.SB1S, n_bos=4, paras=Paras.SB1S,
         # HO
         h_pauli += n_pauli * paras.value[1]  # omega
         # S1-HO, S2-HO, S3-HO
-        h_pauli += ad_pauli * 0.5*(PXS[s1] + (CMPLX*PYS[s1])) * paras.value[2]  # lambda
-        h_pauli += a_pauli * 0.5*(PXS[s1] - (CMPLX*PYS[s1])) * paras.value[2]  # lambda
+        # lambda
+        h_pauli += ad_pauli * 0.5*(PXS[s1] + (CMPLX*PYS[s1])) * paras.value[2]  
+        h_pauli += a_pauli * 0.5*(PXS[s1] - (CMPLX*PYS[s1])) * paras.value[2]  
         # S2
-        h_pauli += ad_pauli * 0.5*(PXS[s2] + (CMPLX*PYS[s2])) * paras.value[2]  # lambda
-        h_pauli += a_pauli * 0.5*(PXS[s2] - (CMPLX*PYS[s2])) * paras.value[2]  # lambda
+        h_pauli += ad_pauli * 0.5*(PXS[s2] + (CMPLX*PYS[s2])) * paras.value[2] 
+        h_pauli += a_pauli * 0.5*(PXS[s2] - (CMPLX*PYS[s2])) * paras.value[2]  
         # S3
-        h_pauli += ad_pauli * 0.5*(PXS[s3] + (CMPLX*PYS[s3])) * paras.value[2]  # lambda
-        h_pauli += a_pauli * 0.5*(PXS[s3] - (CMPLX*PYS[s3])) * paras.value[2]  # lambda
+        h_pauli += ad_pauli * 0.5*(PXS[s3] + (CMPLX*PYS[s3])) * paras.value[2]  
+        h_pauli += a_pauli * 0.5*(PXS[s3] - (CMPLX*PYS[s3])) * paras.value[2]  
     elif model == Model.JC2S: # S-H-S
         # S1, S2
         h_pauli += PZS[s1] * 0.5 * pz_convention
         h_pauli += PZS[s2] * 0.5 * pz_convention
         # HO
         h_pauli += n_pauli * paras.value[1]  # omega
+        # lambda
         # S1-HO
-        h_pauli += a_pauli * 0.5 * (PXS[s1] + (CMPLX*PYS[s1])) * paras.value[2]  # lambda
-        h_pauli += ad_pauli * 0.5 * (PXS[s1] - (CMPLX*PYS[s1])) * paras.value[2]  # lambda
+        h_pauli += a_pauli * 0.5 * (PXS[s1] + (CMPLX*PYS[s1])) * paras.value[2]  
+        h_pauli += ad_pauli * 0.5 * (PXS[s1] - (CMPLX*PYS[s1])) * paras.value[2]  
         # S2-HO
-        h_pauli += a_pauli * 0.5 * (PXS[s2] + (CMPLX*PYS[s2])) * paras.value[2]  # lambda
-        h_pauli += ad_pauli * 0.5 * (PXS[s2] - (CMPLX*PYS[s2])) * paras.value[2]  # lambda
+        h_pauli += a_pauli * 0.5 * (PXS[s2] + (CMPLX*PYS[s2])) * paras.value[2]  
+        h_pauli += ad_pauli * 0.5 * (PXS[s2] - (CMPLX*PYS[s2])) * paras.value[2]  
     if aslatex:
         return latexify(h_pauli, enc)
     return pauli_to_qiskit(h_pauli, n_qubits)

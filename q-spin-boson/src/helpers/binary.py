@@ -57,6 +57,9 @@ def gray_sequence(numbers=3, length=None, rev=False):
 
 
 def get_seq(encoding: Enc, numbers=None, length=None, rev=False):
+    """Get sequence of binary strings.
+    Length is the number of qubits.
+    Numbers is the number of states to generate."""
     if encoding == Enc.BINARY:
         seq = sb_sequence(numbers=numbers, length=length, rev=rev)
     elif encoding in [Enc.SPLITUNARY, Enc.FULLUNARY]:

@@ -4,12 +4,12 @@ import numpy as np
 
 from settings.types import Env
 from settings.conventions import test_convention
-from src.model_spin_boson import SpinBosonSimulation
+from src.model_spinboson import SSpinBosonSimulation, DSpinBosonSimulation
 
 def main():
     print('-'*80)
 
-    # sim = SpinBosonSimulation()
+    # sim = SSpinBosonSimulation()
     # print(sim.name)
     # sim.get_simulation()
     # sim.check_results()
@@ -20,7 +20,7 @@ def main():
     # sim.save_circuit_latex(sim.backend)
     # sim.save_circuit_image(sim.backend)
 
-    sim = SpinBosonSimulation(n_bos=3, env=Env.NOENV)
+    sim = SSpinBosonSimulation(n_bos=3, env=Env.NOENV)
     print(sim.name)
     print(sim.h_mat)
 

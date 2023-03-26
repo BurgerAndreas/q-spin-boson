@@ -6,8 +6,8 @@ class Model(Enum):
     SB2S = 'sb2s'
     SB1SPZ = 'sb1spz'
     SB1SJC = 'sb1sjc'
-    JC1S = 'jc3s'
     JC2S = 'jc2s'
+    JC3S = 'jc3s'
 
 class Env(Enum):
     NOENV = 'noenv'
@@ -19,8 +19,8 @@ class Env(Enum):
 
 class H(Enum):
     NOH = 'noh'
-    FRSTORD = 'productfrml' # first order product formula
-    SCNDORD = 'scndord' # second order product formula
+    FRSTORD = 'o1' # first order product formula
+    SCNDORD = 'o2' # second order product formula
     ISODECOMP = 'isodecomp'
     QDRIFT = 'qdrift'
 

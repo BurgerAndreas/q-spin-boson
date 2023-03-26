@@ -32,6 +32,9 @@ def build_ada(n_bos=4):
 
 
 def hamiltonian_as_matrix(model=Model.SB1S, n_bos=4, paras=Paras.SB1S):
+    if model == Model.TWOLVL: # Just a single spin (qubit), no Hamiltonian
+        return None
+    
     spin_id = np.eye(2)  # identity on spin space
     # build bosonic operators
     a = build_a(n_bos)
@@ -135,7 +138,7 @@ def hamiltonian_as_matrix(model=Model.SB1S, n_bos=4, paras=Paras.SB1S):
     elif model == Model.SB1SPZ: h_matrix = sb1spz()
     elif model == Model.SB1SJC: h_matrix = sb1sjc()
     elif model == Model.JC2S: h_matrix = jc2s()
-    elif model == Model.JC3F: h_matrix = jc3s()
+    elif model == Model.JC3S: h_matrix = jc3s()
     else: h_matrix = None
 
     return h_matrix

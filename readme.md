@@ -20,31 +20,41 @@ conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebo
 python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments pylatexenc matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
 ```
 
-## Structure
+## File Structure
 
 ```bash
 q-spin-boson/
 |-- saved-models/ # saved simulations (pickle files)
 |   |-- ...
 |
-|-- settings/ # basically code which is not functions
+|-- settings/ # code which is not functions
 |   |-- ...
 |
 |-- src/
-|   |-- helpers/ # functions. called by model_base.py
+|   |-- helpers/ # functions called by model_base.py
 |   |   |-- ...
 |   |
 |   |-- model_base.py # simulation base class. called by model_<...>.py
-|   |-- model_<...>.py # simulations. called by main.py
+|   |-- model_<...>.py # simulation subclasses. called by main.py
 |   |-- plotting.py # plot simulations
 |
 |-- main.py
+|-- plots_paper.py
+|-- plots_thesis.py # tbd
 ```
 
-## Todos
+## Class Structure
 
-[ ] jupyter notebook env variables
-[ ] __init__.py
-[ ] matplotlib show plots as an env setting
-[ ] code timing
-[ ] docker
+```bash
+Simulation # base class
+|-- SSpinBosonSimulation # Single spin spin-boson simulation
+|   # Different hamiltonians
+|
+|-- DSpinBosonSimulation # Double spin spin-boson simulation
+|
+|-- JCSpinBosonSimulation # Jaynes-Cummings simulation 
+|
+|-- TwoLevelSimulation # Spin system simulation 
+|
+simulation() # Function to get any simulation subclass
+```

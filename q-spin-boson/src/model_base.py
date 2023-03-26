@@ -1,10 +1,9 @@
 import numpy as np
-from typing import List, Sequence, Any # typechecking with mypy
+from typing import List, Sequence, Dict, Any # typechecking with mypy
 from numpy.typing import NDArray # typechecking with mypy
 import matplotlib.pyplot as plt
 import math as m
 import scipy.linalg # expm
-from itertools import product # permutations, combinations
 import functools as ft  # XX = ft.reduce(np.kron, [A, B, C, D, E])
 from dotenv import load_dotenv  # load environment variables from env file
 import os
@@ -31,7 +30,7 @@ from qiskit.ignis.verification.tomography import state_tomography_circuits, Stat
 from qiskit.ignis.mitigation.measurement import complete_meas_cal, CompleteMeasFitter
 from qiskit.synthesis import QDrift, LieTrotter, SuzukiTrotter
 
-from settings.types import Enc, Env, H, Model, Steps
+from settings.types import Enc, Env, H, Model, Steps, Axis
 from settings.parameters import Paras
 from src.helpers.noise_modeling import modified_noise_model
 from src.helpers.hamiltonian_matrix import hamiltonian_as_matrix
@@ -69,7 +68,8 @@ class Simulation():
                  steps: Steps, 
                  dt: float, 
                  eta: int, 
-                 noise: float = 1.):
+                 noise: float = 1.,
+                 initial: NDArray = None):
         """Create a Simulation object.
         To load / simulate the model, use the get_simulation() method.
         Args:
@@ -78,6 +78,11 @@ class Simulation():
             env (Env): Model for environment.
             h (H): 1st order (trotter), 2nd order (suzuki) product formula 
                 or isometric decomposition.
+            steps (Steps): Number of steps for trotter or suzuki product formula.
+            dt (float): Timestep for trotter or suzuki product formula.
+            eta (int): Number of bosons to be measured.
+            noise (float): Noise strength for simulation.
+            initial (NDArray): initial system state (w/o environment)
         """
         # --------------------------------------------------------------------
         # set parameters
@@ -92,11 +97,13 @@ class Simulation():
         self.dt = np.round(dt, 2)
         self.eta = eta
         self.noise = noise
+        self.initial = initial
         # --------------------------------------------------------------------
         # parameters
         self.qst = True
         self.initial_state = None
         self.name = None
+        self.opt_prdctfrml: Dict = None # noise -> product formula, timestep
         # --------------------------------------------------------------------
         # containers for simulation calculations
         self.h_op: PauliSumOp = None # hamiltonian
@@ -128,28 +135,42 @@ class Simulation():
         self.sz = []  # z measurement on spin(s)
         self.sx = []  # x measurement on spin(s)
         self.sy = []  # y measurement on spin(s)
+        self.s = {Axis.ZAX: self.sz, Axis.XAX: self.sx, Axis.YAX: self.sy}
         self.dm = []  # density matrix
         self.szcorr = []  # connected correlation <sz sz> - <sz><sz>
         self.sxcorr = []  # connected correlation <sx sx> - <sx><sx>
         self.sycorr = []  # connected correlation <sy sy> - <sy><sy>
+        self.scorr = {Axis.ZAX: self.szcorr, Axis.XAX: self.sxcorr, 
+                      Axis.YAX: self.sycorr}
         self.bosons = []  # boson occupation number
         # error em circuit = noise model + measurement mitigation
         self.evo_em = []  # evolution of system
         self.sz_em = []  # z measurement
         self.sx_em = []  # x measurement
         self.sy_em = []  # y measurement
+        self.s_em = {Axis.ZAX: self.sz_em, Axis.XAX: self.sx_em, 
+                     Axis.YAX: self.sy_em}
         self.dm_em = []  # density matrix
         self.szcorr_em = []  # connected correlation
         self.sxcorr_em = []  # connected correlation
+        self.sycorr_em = []  # connected correlation
+        self.scorr_em = {Axis.ZAX: self.szcorr_em, Axis.XAX: self.sxcorr_em,
+                        Axis.YAX: self.sycorr_em}
         self.bosons_em = []  # boson occupation number
         # exact reference = qutip linblad master equation solver
         self.evo_exact = []  # evolution of system
         self.sz_exact = []  # z measurement
         self.sx_exact = []  # x measurement
         self.sy_exact = []  # y measurement
+        self.s_exact = {Axis.ZAX: self.sz_exact, Axis.XAX: self.sx_exact, 
+                        Axis.YAX: self.sy_exact}
         self.dm_exact = []  # density matrix
         self.szcorr_exact = []  # connected correlation
         self.sxcorr_exact = []  # connected correlation
+        self.sycorr_exact = []  # connected correlation
+        self.scorr_exact = {Axis.ZAX: self.szcorr_exact, 
+                            Axis.XAX: self.sxcorr_exact,
+                            Axis.YAX: self.sycorr_exact}
         self.bosons_exact = []  # boson occupation number
         # infidelity 
         self.infidelity = []  # exact - noiseless circuit
@@ -162,6 +183,13 @@ class Simulation():
         # --------------------------------------------------------------------
         self.load_status: int = 0
         
+    def __repr__(self):
+        # dir(MyClass)
+        return f"Simulation({self.name}). Methods: {self.__dir__()}"
+    
+    def __str__(self):
+        return f"Simulation({self.name})"
+    
     def get_simulation(self):
         self.fix_parameters()
         self.update_name()
@@ -173,26 +201,49 @@ class Simulation():
     def fix_parameters(self):
         if self.enc in [Enc.SPLITUNARY, Enc.FULLUNARY]:
             self.qst = False
+            if self.model in [Model.JC2S, Model.JC3S]:
+                raise ValueError('Unary encodings not supported for JC.')
         if self.h in [H.NOH, H.ISODECOMP]:
             self.enc = Enc.BINARY
+    
+    def set_optimal_product_formula(self) -> None:
+        """Set optimal product formula and dt for Trotterization."""
+        if self.noise in self.opt_prdctfrml:
+            self.h, self. dt = self.opt_prdctfrml[self.noise]
+        else:
+            self.h, self. dt = self.opt_prdctfrml[.1]
+        return
 
     def update_name(self):
-        # model
-        name = f'{self.model.name}_{self.env.name}_b{self.n_bos}'
-        # model parameters
-        name += f'_{self.paras.name}_g{self.gamma:.2f}'
-        # simulation parameters
-        name += f'_{self.h.name}'
+        # Model
+        name = f'{self.model.name}'
+        if self.env:
+            name += f'_{self.env.name}' # JC does not have environment
+        if self.n_bos:
+            name += f'_b{self.n_bos}' # TwoLevel does not have bosons
+        # Model parameters
+        if self.paras:
+            name += f'_p{self.paras.name}' # TwoLevel has no parameters
+        if self.gamma:
+            name += f'_g{self.gamma:.3f}' # JC does not have environment
+        # Simulation parameters
+        if self.h:
+            name += f'_{self.h.value}' # TwoLevel has no Hamiltonian
         if self.steps == Steps.LOOP:
-            name += f'_s{self.steps.name}_d{self.dt:.2f}'
+            name += f'_s{self.steps.value}_d{self.dt:.3f}'
         else:
-            name += f'_s{self.steps.name}_n{self.eta}'
-        name += f'_e{self.noise:.2f}_{self.backend.backend_name}'
-        self.name = name.lower()
+            name += f'_s{self.steps.value}_n{self.eta}'
+        name += f'_e{self.noise:.3f}'
+        name += f"_{self.backend.backend_name.replace('_', '')}"
+        # Custom initial state
+        if self.initial:
+            name += f"_i{''.join(str(i) for i in self.initial)}"
+        # Remove all dots in floats
+        self.name = name.lower().replace('.', '')
         return name
 
     def load(self):
-        # check if saved model exists
+        # Check if saved model exists
         path = f'{DIR_SAVED_MODELS}{self.name}.pickle'
         if Path(path).is_file():
             # load model
@@ -200,7 +251,7 @@ class Simulation():
                 open(path, mode='rb')
                 ).__dict__)
             return 200
-        # saved model does not exist
+        # Saved model does not exist
         return 404
 
     def save(self):
@@ -216,7 +267,7 @@ class Simulation():
         """Circuit for one trotter step.
         Time t = 1.
         """
-        # circuit for one trotter step
+        # Circuit for one trotter step
         qc = self.qc_empty.copy()
         if initial:
             for pos, c in enumerate(self.i_full_binary):
@@ -279,13 +330,37 @@ class Simulation():
         fig.show()
         return
     
+    def update_s(self) -> None:
+        """Update spin, spin correlation dictionaries."""
+        self.s = {Axis.ZAX: self.sz, Axis.XAX: self.sx, Axis.YAX: self.sy}
+        self.s_em = {Axis.ZAX: self.sz_em, Axis.XAX: self.sx_em, 
+                     Axis.YAX: self.sy_em}
+        self.s_exact = {Axis.ZAX: self.sz_exact, Axis.XAX: self.sx_exact, 
+                        Axis.YAX: self.sy_exact}
+        # spin correlation
+        self.scorr = {Axis.ZAX: self.szcorr, Axis.XAX: self.sxcorr, 
+                      Axis.YAX: self.sycorr} 
+        self.scorr_em = {Axis.ZAX: self.szcorr_em, Axis.XAX: self.sxcorr_em, 
+                         Axis.YAX: self.sycorr_em}
+        self.scorr_exact = {Axis.ZAX: self.szcorr_exact, 
+                            Axis.XAX: self.sxcorr_exact, 
+                            Axis.YAX: self.sycorr_exact}
+        return
+    
     def simulate_model(self) -> None:
+        print('-'*40)
+        print(f'Simulating model: {self.name}')
+        t = time.time()
         self.build_operators()
         self.set_labels()
         self.simulate_qc()
         self.simulate_exact_linblad()
+        self.update_s()
         self.compare_simulations()
         self.load_status = self.save()
+        print(f'Simulation time:', 
+              f'{(time.time() - t)/60:.2f}min', 
+              f'({time.time() - t:.2f}s)')
         return
     
     def build_operators(self) -> None:
@@ -307,6 +382,7 @@ class Simulation():
 
     def simulate_exact_linblad(self) -> None:
         if self.h_mat is None:
+            # TwoLevel has no Hamiltonian
             h_obj = Qobj(np.zeros([self.d_system, self.d_system]))
         else:
             h_obj = Qobj(self.h_mat)
@@ -372,10 +448,14 @@ class Simulation():
             h_pauli = matrix_to_pauli(h_mat, self.enc, enc_seq, 0)
             h_op = eval(pauli_to_qiskit(h_pauli, self.d_system))
             # evolution_op = h_op.exp_i()
-            # trotterized_op = PauliTrotterEvolution(trotter_mode='trotter', reps=1).convert(evolution_op)
+            # trotterized_op = PauliTrotterEvolution(
+            #     trotter_mode='trotter', 
+            #     reps=1
+            #     ).convert(evolution_op)
             # qc_e = trotterized_op.to_circuit()
         else:
-            h_op = eval(hamiltonian_as_paulis(self.model, self.n_bos, self.paras, self.enc))
+            h_op = eval(hamiltonian_as_paulis(self.model, self.n_bos, 
+                                              self.paras, self.enc))
         self.h_mat = h_mat
         self.h_op = h_op
         return h_mat, h_op
@@ -636,32 +716,40 @@ class Simulation():
             qc_e_m = qc_m.compose(qc_z, qubits=range(qnum), front=True)
             # lossless
             backend_ll = AerSimulator()
-            qc_e_m_ll = transpile(qc_e_m, backend=backend_ll, optimization_level=2)
+            qc_e_m_ll = transpile(qc_e_m, backend=backend_ll, 
+                                  optimization_level=2)
             job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
             result_ll = job_ll.result()
             counts_ll = result_ll.get_counts(qc_e_m_ll)
             counts_ll, shots_ll = self.get_post_selection(counts_ll)
             counts_ll = fillin_counts(counts_ll)
             # error mitigated
-            _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, self.noise_model)
+            _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), 
+                                             self.shots, self.noise_model)
             counts_em, shots_em = self.get_post_selection(counts_em)
             counts_em = fillin_counts(counts_em)
             for _cnts, _shots, _sz in zip([counts_ll, counts_em], 
                                           [shots_ll, shots_em],
                                           [self.sz, self.sz_em]):
                 _sz.append([
-                    -1*(-(_cnts['00'] + _cnts['10']) + (_cnts['01'] + _cnts['11'])) / _shots,                
-                    -1*(-(_cnts['00'] + _cnts['01']) + (_cnts['10'] + _cnts['11'])) / _shots])
+                    -1*(-(_cnts['00'] + _cnts['10']) 
+                        + (_cnts['01'] + _cnts['11'])) / _shots,                
+                    -1*(-(_cnts['00'] + _cnts['01']) 
+                        + (_cnts['10'] + _cnts['11'])) / _shots])
             # Z-basis spin correlation
             for _cnts, _shots, _szc in zip([counts_ll, counts_em], 
                                           [shots_ll, shots_em],
                                           [self.szcorr, self.szcorr_em]):
                 # <Sz Sz> = P[00] + P[11] - P[01] - P[10]
                 # <Sz><Sz> = {-P[0] + P[1]}_a * {-P[0] + P[1]}_b
-                #          = {-P[00] - P[01] + P[10] + P[11]}_a * {-P[00] - P[10] + P[01] + P[11]}_b
-                _corr = np.real(((_cnts['00'] + _cnts['11']) - (_cnts['01'] + _cnts['10'])) / _shots)  
-                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] + _cnts['10'] + _cnts['11']) / _shots)
-                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] + _cnts['01'] + _cnts['11']) /_shots)
+                #          = {-P[00] - P[01] + P[10] + P[11]}_a 
+                #           * {-P[00] - P[10] + P[01] + P[11]}_b
+                _corr = np.real(((_cnts['00'] + _cnts['11']) 
+                                 - (_cnts['01'] + _cnts['10'])) / _shots)  
+                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] 
+                                  + _cnts['10'] + _cnts['11']) / _shots)
+                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] 
+                                  + _cnts['01'] + _cnts['11']) /_shots)
                 _szc.append(_corr - (_avg_0 * _avg_1))
         # ----------------------------------
         # X-basis measurement, spin correlation
@@ -680,7 +768,8 @@ class Simulation():
         counts_ll, shots_ll = self.get_post_selection(counts_ll)
         counts_ll = fillin_counts(counts_ll)
         # error mitigated
-        _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, self.noise_model)
+        _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), 
+                                         self.shots, self.noise_model)
         counts_em, shots_em = self.get_post_selection(counts_em)
         counts_em = fillin_counts(counts_em)
         if len(self.spins) == 1:
@@ -693,14 +782,19 @@ class Simulation():
                                           [shots_ll, shots_em],
                                           [self.sx, self.sx_em]):
                 _sx.append([
-                    -1*(-(_cnts['00'] + _cnts['10']) + (_cnts['01'] + _cnts['11'])) / _shots,                
-                    -1*(-(_cnts['00'] + _cnts['01']) + (_cnts['10'] + _cnts['11'])) /_shots])
+                    -1*(-(_cnts['00'] + _cnts['10']) 
+                        + (_cnts['01'] + _cnts['11'])) / _shots,                
+                    -1*(-(_cnts['00'] + _cnts['01']) 
+                        + (_cnts['10'] + _cnts['11'])) /_shots])
             for _cnts, _shots, _sxc in zip([counts_ll, counts_em], 
                                           [shots_ll, shots_em],
                                           [self.sxcorr, self.sxcorr_em]):
-                _corr = np.real(((_cnts['00'] + _cnts['11']) - (_cnts['01'] + _cnts['10'])) / _shots)  
-                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] + _cnts['10'] + _cnts['11']) / _shots)
-                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] + _cnts['01'] + _cnts['11']) / _shots)
+                _corr = np.real(((_cnts['00'] + _cnts['11']) 
+                                 - (_cnts['01'] + _cnts['10'])) / _shots)  
+                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] 
+                                  + _cnts['10'] + _cnts['11']) / _shots)
+                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] 
+                                  + _cnts['01'] + _cnts['11']) / _shots)
                 _sxc.append(_corr - (_avg_0 * _avg_1))
         # ----------------------------------
         # Y-basis measurement, spin correlation
@@ -720,7 +814,8 @@ class Simulation():
         counts_ll, shots_ll = self.get_post_selection(counts_ll)
         counts_ll = fillin_counts(counts_ll)
         # error mitigated
-        _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, self.noise_model)
+        _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, 
+                                         self.noise_model)
         counts_em, shots_em = self.get_post_selection(counts_em)
         counts_em = fillin_counts(counts_em)
         if len(self.spins) == 1:
@@ -733,14 +828,19 @@ class Simulation():
                                           [shots_ll, shots_em], 
                                           [self.sy, self.sy_em]):
                 _sy.append([
-                    -1*(-(_cnts['00'] + _cnts['10']) + (_cnts['01'] + _cnts['11'])) / _shots,                
-                    -1*(-(_cnts['00'] + _cnts['01']) + (_cnts['10'] + _cnts['11'])) / _shots])
+                    -1*(-(_cnts['00'] + _cnts['10']) 
+                        + (_cnts['01'] + _cnts['11'])) / _shots,                
+                    -1*(-(_cnts['00'] + _cnts['01']) 
+                        + (_cnts['10'] + _cnts['11'])) / _shots])
             for _cnts, _shots, _syc in zip([counts_ll, counts_em], 
                                            [shots_ll, shots_em], 
                                            [self.sycorr, self.sycorr_em]):
-                _corr = np.real(((_cnts['00'] + _cnts['11']) - (_cnts['01'] + _cnts['10'])) / _shots)  
-                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] + _cnts['10'] + _cnts['11']) / _shots)
-                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] + _cnts['01'] + _cnts['11']) / _shots)
+                _corr = np.real(((_cnts['00'] + _cnts['11']) 
+                                 - (_cnts['01'] + _cnts['10'])) / _shots)  
+                _avg_0 = np.real((-_cnts['00'] - _cnts['01'] 
+                                  + _cnts['10'] + _cnts['11']) / _shots)
+                _avg_1 = np.real((-_cnts['00'] - _cnts['10'] 
+                                  + _cnts['01'] + _cnts['11']) / _shots)
                 _syc.append(_corr - (_avg_0 * _avg_1))
         
         return 
@@ -749,8 +849,16 @@ class Simulation():
         """Fidelity"""
         if self.qst:
             for t_step in range(len(self.timesteps)):
-                self.infidelity.append(np.real(dm_fidelity(true=self.dm_exact[t_step], approx=self.dm[t_step], inv=True)))
-                self.infidelity_em.append(np.real(dm_fidelity(true=self.dm_exact[t_step], approx=self.dm_em[t_step], inv=True)))
+                self.infidelity.append(
+                    np.real(dm_fidelity(
+                    true=self.dm_exact[t_step], 
+                    approx=self.dm[t_step], 
+                    inv=True)))
+                self.infidelity_em.append(
+                    np.real(dm_fidelity(
+                    true=self.dm_exact[t_step], 
+                    approx=self.dm_em[t_step], 
+                    inv=True)))
         return 
     
     def check_results(self) -> None:
