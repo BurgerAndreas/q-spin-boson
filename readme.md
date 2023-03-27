@@ -20,12 +20,30 @@ conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebo
 python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments pylatexenc matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
 ```
 
+### Docker
+
+Start docker daemon / desktop app
+
+```bash
+docker build -t myimage -f dockerfile .
+docker images
+
+# docker run -it --name mycontainer myimage
+# this will save changes made inside the container to your local machine
+docker run -it -v $(pwd)/q-spin-boson/data:/app/data --name mycontainer myimage
+
+docker ps -a
+docker rm -f mycontainer
+```
+
 ## File Structure
 
 ```bash
 q-spin-boson/
-|-- saved-models/ # saved simulations (pickle files)
-|   |-- ...
+|-- data/
+|   |-- saved-models/ # saved simulations (pickle files)
+|   |-- plots/ 
+|   |-- plots-circuits/ 
 |
 |-- settings/ # code which is not functions
 |   |-- ...

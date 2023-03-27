@@ -40,15 +40,12 @@ from src.helpers.binary import unary_sequence, sb_sequence, get_seq, fillin_coun
 from src.helpers.error_mitigation import mitigate_error
 from src.helpers.operators import expct, get_state_label, dm_fidelity
 
-# load environment variables from env file
-# DIR_ENV = os.path.join(os.path.dirname(__file__), 'settings/paths.env')
-DIR_ENV = "q-spin-boson/settings/paths.env"
-load_dotenv(DIR_ENV)
-DIR_SAVED_MODELS = os.getenv('DIR_SAVED_MODELS', DIR_ENV)
-DIR_PLOTS = os.getenv('DIR_PLOTS', DIR_ENV)
-DIR_PLOTS_CIRCUIT = os.getenv('DIR_PLOTS_CIRCUIT', DIR_ENV)
-PIC_FILE = os.getenv('PIC_FILE', DIR_ENV)
-
+# Set file locations
+DIR_FILE = os.path.dirname(os.path.realpath(__file__))
+DIR_SAVED_MODELS = os.path.join(DIR_FILE, '../data/saved-models/')
+DIR_PLOTS = os.path.join(DIR_FILE, '../data/plots/')
+DIR_PLOTS_CIRCUIT = os.path.join(DIR_FILE, '../data/plots-circuits/')
+PIC_FILE = 'png'
 
 class Simulation():
     """Simulation base class. 
@@ -175,6 +172,15 @@ class Simulation():
         # infidelity 
         self.infidelity = []  # exact - noiseless circuit
         self.infidelity_em = []  # exact - error em circuit
+        # absolute error
+        self.ae = []  # exact - noiseless circuit
+        self.ae_em = []  # exact - error em circuit
+        # mean absolute error
+        self.mae = []  # exact - noiseless circuit
+        self.mae_em = []  # exact - error em circuit
+        # mean squared error
+        self.mse = []  # exact - noiseless circuit
+        self.mse_em = []  # exact - error em circuit
         # post selection quota
         self.ps_quota = [] 
         self.ps_quota_em = [] 
@@ -294,13 +300,13 @@ class Simulation():
         """Qubit connectivity and circuit qubit mapping onto device."""
         # device gate map
         fig = plot_gate_map(backend, 
-            filename=f'{DIR_PLOTS_CIRCUIT}{self.name}_gatemap{PIC_FILE}')
+            filename=f'{DIR_PLOTS_CIRCUIT}{self.name}_gatemap.{PIC_FILE}')
         # fig.tight_layout()
         # fig.show()
         # qubit mapping onto device
         qc = self.circuit_example(backend, initial)
         fig = plot_circuit_layout(qc, backend)
-        fig.savefig(fname=f'{DIR_PLOTS_CIRCUIT}{self.name}_layout{PIC_FILE}')
+        fig.savefig(fname=f'{DIR_PLOTS_CIRCUIT}{self.name}_layout.{PIC_FILE}')
         # fig.show()
         return 
 
@@ -325,7 +331,7 @@ class Simulation():
         """Circuit for one trotter step as an image."""
         qc = self.circuit_example(backend, initial)
         fig = qc.draw('mpl', 
-                      filename=f'{DIR_PLOTS_CIRCUIT}{self.name}{PIC_FILE}', 
+                      filename=f'{DIR_PLOTS_CIRCUIT}{self.name}.{PIC_FILE}', 
                       style="bw") #  style="bw", "iqx"
         fig.show()
         return
@@ -358,9 +364,12 @@ class Simulation():
         self.update_s()
         self.compare_simulations()
         self.load_status = self.save()
-        print(f'Simulation time:', 
+        print('infidelity   :', np.round(self.infidelity, 3))
+        print('infidelity em:', np.round(self.infidelity_em, 3))
+        print('Simulation time:', 
               f'{(time.time() - t)/60:.2f}min', 
               f'({time.time() - t:.2f}s)')
+        print('-'*40)
         return
     
     def build_operators(self) -> None:
@@ -376,7 +385,7 @@ class Simulation():
         for d in range(self.d_system):
             basis_dm = np.zeros([self.d_system, self.d_system])
             basis_dm[d][d] = 1
-            self.labels.append(get_state_label(basis_dm, self.sz_ops, self.ada))
+            labels.append(get_state_label(basis_dm, self.sz_ops, self.ada))
         self.labels = labels
         return
 
@@ -388,12 +397,14 @@ class Simulation():
             h_obj = Qobj(self.h_mat)
         i_system = np.reshape(self.i_system, [np.size(self.i_system), 1])
         rho0 = Qobj(i_system @ i_system.T)
-        dm_qutip = mesolve(H=h_obj, rho0=rho0, tlist=self.timesteps, 
-                           c_ops=[Qobj(l) for l in self.l_ops])
+        cops = [Qobj(l) for l in self.l_ops] if self.l_ops else []
+        dm_qutip = mesolve(H=h_obj, rho0=rho0, tlist=self.timesteps, c_ops=cops)
         # evolution
-        self.evo_exact = [
+        evo_exact_transpose = [
             np.real(expect(dm_qutip.states, projection(self.d_system, st, st))) 
             for st in range(self.d_system)]
+        # self.evo_exact = np.transpose(evo_exact_transpose)
+        self.evo_exact = [list(x) for x in zip(*evo_exact_transpose)]
         # density matrix
         self.dm_exact = [dm_qutip.states[t_step].data.toarray() 
                          for t_step in range(len(self.timesteps))]
@@ -537,7 +548,7 @@ class Simulation():
                 pswap_arr = pswap_matrix(theta)
             elif self.env == Env.ADMATRIX:
                 ad_arr = ad_matrix(theta)
-            elif self.env == 'kraus':
+            elif self.env == Env.KRAUS:
                 k1, k2 = kraus0_diluted(self.gamma, t)
             # trotterized_evolution
             for f_a in self.s_a_pairs:
@@ -548,10 +559,10 @@ class Simulation():
                     qc.unitary(pswap_arr, [f_a[0], f_a[1]], label='pswap')
                 elif self.env == Env.ADMATRIX:
                     qc.unitary(ad_arr, [f_a[0], f_a[1]], label='adc')
-                elif self.env == 'adc':
+                elif self.env == Env.ADC:
                     qc.cry(theta=2*theta, control_qubit=f_a[0], target_qubit=f_a[1])
                     qc.cx(control_qubit=f_a[1], target_qubit=f_a[0])
-                elif self.env == 'kraus':
+                elif self.env == Env.KRAUS:
                     qc.unitary(k2, [f_a[0], f_a[1]], label='k2')
                 elif self.env == Env.GATEFOLDING:
                     #[('rz', 8), ('sx', 6), ('cx', 2), ('x', 1)
@@ -579,6 +590,8 @@ class Simulation():
                     for _ in range(1): # 1
                         qc.x(qubit=f_a[1])
                         qc.barrier(f_a)
+                elif self.env != Env.NOENV:
+                    raise ValueError(f'Unknown environment {self.env}')
         return qc
 
     def meas_tomography(self, qc, meas_qubits) -> None:
@@ -727,12 +740,14 @@ class Simulation():
             job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
             result_ll = job_ll.result()
             counts_ll = result_ll.get_counts(qc_e_m_ll)
-            counts_ll, shots_ll = self.get_post_selection(counts_ll)
+            # counts_ll, shots_ll = self.get_post_selection(counts_ll)
+            shots_ll = self.shots
             counts_ll = fillin_counts(counts_ll)
             # error mitigated
             _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), 
                                              self.shots, self.noise_model)
-            counts_em, shots_em = self.get_post_selection(counts_em)
+            # counts_em, shots_em = self.get_post_selection(counts_em)
+            shots_em = self.shots
             counts_em = fillin_counts(counts_em)
             for _cnts, _shots, _sz in zip([counts_ll, counts_em], 
                                           [shots_ll, shots_em],
@@ -771,12 +786,14 @@ class Simulation():
         job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
         result_ll = job_ll.result()
         counts_ll = result_ll.get_counts(qc_e_m_ll)
-        counts_ll, shots_ll = self.get_post_selection(counts_ll)
+        # counts_ll, shots_ll = self.get_post_selection(counts_ll)
+        shots_ll = self.shots
         counts_ll = fillin_counts(counts_ll)
         # error mitigated
         _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), 
                                          self.shots, self.noise_model)
-        counts_em, shots_em = self.get_post_selection(counts_em)
+        # counts_em, shots_em = self.get_post_selection(counts_em)
+        shots_em = self.shots
         counts_em = fillin_counts(counts_em)
         if len(self.spins) == 1:
             for _cnts, _shots, _sx in zip([counts_ll, counts_em], 
@@ -817,12 +834,14 @@ class Simulation():
         job_ll = backend_ll.run(qc_e_m_ll, shots=self.shots)  # run_options
         result_ll = job_ll.result()
         counts_ll = result_ll.get_counts(qc_e_m_ll)
-        counts_ll, shots_ll = self.get_post_selection(counts_ll)
+        # counts_ll, shots_ll = self.get_post_selection(counts_ll)
+        shots_ll = self.shots
         counts_ll = fillin_counts(counts_ll)
         # error mitigated
         _, counts_em, _ = mitigate_error(qc_e_m, len(self.spins), self.shots, 
                                          self.noise_model)
-        counts_em, shots_em = self.get_post_selection(counts_em)
+        # counts_em, shots_em = self.get_post_selection(counts_em)
+        shots_em = self.shots
         counts_em = fillin_counts(counts_em)
         if len(self.spins) == 1:
             for _cnts, _shots, _sy in zip([counts_ll, counts_em], 
@@ -865,13 +884,26 @@ class Simulation():
                     true=self.dm_exact[t_step], 
                     approx=self.dm_em[t_step], 
                     inv=True)))
+        # absolute error
+        self.ae = np.abs(np.array(self.evo) - np.array(self.evo_exact))
+        self.ae_em = np.abs(np.array(self.evo_em) - np.array(self.evo_exact))
+        # mean squared error (MSE)
+        # each point is the MSE of all states at a given time step
+        self.mse = np.mean(np.square(self.ae), axis=1)
+        self.mse_em = np.mean(np.square(self.ae_em), axis=1)
+        # mean absolute error (MAE)
+        self.mae = np.mean(self.ae, axis=1)
+        self.mae_em = np.mean(self.ae_em, axis=1)
         return 
     
     def check_results(self) -> None:
         # Check if there are results
         print('timesteps', np.shape(self.timesteps))
+        print('labels', np.shape(self.labels))
         print('evo', np.shape(self.evo))
+        print('evo exact', np.shape(self.evo_exact))
         print('dm', np.shape(self.dm))
+        print('dm exact', np.shape(self.dm_exact))
         print('sz', np.shape(self.sz))
         print('sx', np.shape(self.sx))
         print('sy', np.shape(self.sy))

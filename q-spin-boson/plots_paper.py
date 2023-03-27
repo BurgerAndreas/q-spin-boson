@@ -2,33 +2,33 @@ from dotenv import load_dotenv  # load environment variables from env file
 import os
 import numpy as np
 
-from settings.types import Env, Model
+from settings.conventions import test_convention
+from settings.types import Env, Model, H, Enc
 from src.model_spinboson import SSpinBosonSimulation, DSpinBosonSimulation
 from src.model_twolevel import TwoLvlSimulation
 from src.model_js import JCSimulation
 import src.plotting as plotting
 
+
+def test_models():
+    print('-'*80)
+
+    sim = TwoLvlSimulation()
+    sim = SSpinBosonSimulation(n_bos=4)
+    sim = DSpinBosonSimulation(n_bos=4)
+    sim = SSpinBosonSimulation(model=Model.SB1SPZ, n_bos=4)
+    sim = SSpinBosonSimulation(model=Model.SB1SJC, n_bos=4)
+    sim = JCSimulation()
+
+
 def main():
     print('-'*80)
 
-    sim = SSpinBosonSimulation()
-    print(sim)
-    sim.check_results()
-    sim = DSpinBosonSimulation()
-    print(sim)
-    sim.check_results()
     sim = TwoLvlSimulation()
-    print(sim)
-    sim.check_results()
-    sim = SSpinBosonSimulation(model=Model.SB1SPZ)
-    print(sim)
-    sim.check_results()
-    sim = SSpinBosonSimulation(model=Model.SB1SJC)
-    print(sim)
-    sim.check_results()
-    sim = JCSimulation()
-    sim.check_results()
+    fig = plotting.plot_states(sim, exact=True)
+    fig.show()
 
+    sim = SSpinBosonSimulation(n_bos=4)
     fig = plotting.plot_states(sim, exact=True)
     fig.show()
 
@@ -60,4 +60,7 @@ def main():
     # fig.show()
 
 if __name__ == '__main__':
+    # test_convention()
+
+    test_models()
     main()

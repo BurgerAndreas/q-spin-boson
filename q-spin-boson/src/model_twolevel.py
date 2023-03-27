@@ -79,14 +79,14 @@ class TwoLvlSimulation(Simulation):
     def set_initial_state(self) -> None:
         """Set initial state of system.
         Can be overwritten by passing vector for system."""
-        self.i_system: NDArray = ft.reduce(np.kron, [EX1])
+        self.i_system: NDArray = np.asarray(EX1)
         if self.initial is not None:
-            if initial.shape != i_system.shape:
+            if self.initial.shape != self.i_system.shape:
                 raise ValueError(
                     f'Initial state must have length {2**self.n_qubits_system}!')
             self.i_system = self.initial
         # With environment ancillas
-        i_full: NDArray = ft.reduce(np.kron, [self.i_system, GS0])
+        i_full: NDArray = ft.reduce(np.kron, [GS0, self.i_system])
         i_full_binary_rev = to_binary(
             np.nonzero(i_full)[0][0], self.n_qubits)
         # Qiskit ordering
