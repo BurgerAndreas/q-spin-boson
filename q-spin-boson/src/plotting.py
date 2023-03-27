@@ -11,6 +11,20 @@ DTS_DEFAULT = [0.1, 0.2, 0.3, 0.4, 0.5]
 NOISES_DEFAULT = [0.01, 0.1, 1.]
 GAMMAS_DEFAULT = [0., 0.5, 1., 1.5, 2., 2.5]
 
+
+def plot_states(sim: Simulation, exact = True):
+    """Plot state evolution over time."""
+    fig, ax = plt.subplots()
+    ax.plot(sim.evo, sim.timesteps, label=sim.labels)
+    if exact:
+        ax.plot(sim.evo_exact, sim.timesteps, label=None, linestyle='dashed')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('State')
+    ax.set_title('State evolution')
+    ax.legend()
+    return fig
+
+
 def plot_ifid_vs_dt_env(model: Model = Model.SB1S, dts: List[float] = None):
     """
     Time-averaged infidelity over the timestep size dt in noiseless simulations.

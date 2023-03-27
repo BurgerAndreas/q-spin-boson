@@ -57,7 +57,9 @@ class JCSimulation(Simulation):
         self.model = Model.JC2S
         self.env = None
         self.gamma = None
+        # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        self.get_simulation()
     
     def set_dimensions(self) -> None:
         """Set dimensions, post selection, and qubit ordering of system."""

@@ -9,20 +9,17 @@ from src.model_spinboson import SSpinBosonSimulation, DSpinBosonSimulation
 def main():
     print('-'*80)
 
-    # sim = SSpinBosonSimulation()
-    # print(sim.name)
-    # sim.get_simulation()
-    # sim.check_results()
-    # # sim.print_results()
-
-    # sim.get_gates()
-    # sim.save_layout(sim.backend)
-    # sim.save_circuit_latex(sim.backend)
-    # sim.save_circuit_image(sim.backend)
-
-    sim = SSpinBosonSimulation(n_bos=3, env=Env.NOENV)
+    sim = SSpinBosonSimulation()
     print(sim.name)
-    print(sim.h_mat)
+    sim.get_simulation()
+    sim.check_results()
+    # sim.print_results()
+
+    sim.get_gates()
+    sim.save_layout(sim.backend)
+    sim.save_circuit_latex(sim.backend)
+    sim.save_circuit_image(sim.backend)
+
 
 if __name__ == '__main__':
     main()

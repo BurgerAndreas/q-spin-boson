@@ -56,7 +56,9 @@ class SSpinBosonSimulation(Simulation):
         # ------------------------------------------------------------
         if self.model not in [Model.SB1S, Model.SB1SPZ, Model.SB1SJC]:
             raise ValueError(f"Wrong class for model {self.model}.")
+        # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        self.get_simulation()
     
     def set_dimensions(self) -> None:
         """Set dimensions, post selection, and qubit ordering of system."""
@@ -109,13 +111,13 @@ class SSpinBosonSimulation(Simulation):
         self.n_qubits = self.n_qubits_system + 1
         return
     
-    def set_initial_state(self, initial: NDArray=None) -> None:
+    def set_initial_state(self) -> None:
         """Set initial state of system.
         Can be overwritten by passing vector for system."""
         bb = np.eye(self.n_bos, dtype=int) # boson basis vectors (onehot)
         self.i_system: NDArray = ft.reduce(np.kron, [EX1, bb[0]])
         if self.initial is not None:
-            if initial.shape != i_system.shape:
+            if self.initial.shape != self.i_system.shape:
                 raise ValueError(
                     f'Initial state must have length {2**self.n_qubits_system}!')
             self.i_system = self.initial
@@ -187,7 +189,9 @@ class DSpinBosonSimulation(Simulation):
                               1: [H.FRSTORD, 0.3]}
         # ------------------------------------------------------------
         self.model = Model.SB2S
+        # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        self.get_simulation()
 
     def set_dimensions(self) -> None:
         """Set dimensions, post selection, and qubit ordering of system."""
@@ -245,7 +249,7 @@ class DSpinBosonSimulation(Simulation):
         bb = np.eye(self.n_bos, dtype=int) # boson basis vectors (onehot)
         self.i_system: NDArray = ft.reduce(np.kron, [EX1, bb[0], GS0])
         if self.initial is not None:
-            if initial.shape != i_system.shape:
+            if self.initial.shape != self.i_system.shape:
                 raise ValueError(
                     f'Initial state must have length {2**self.n_qubits_system}!')
             self.i_system = self.initial
@@ -288,6 +292,6 @@ class DSpinBosonSimulation(Simulation):
         self.sy_ops = [ft.reduce(np.kron, [PY, boson_id, spin_id]),
                        ft.reduce(np.kron, [spin_id, boson_id, PY])]
         self.ada = ft.reduce(np.kron, [spin_id, ada, spin_id])
-        self.l_ops = [self.gamma * np.kron(PM, boson_id, spin_id),
-                      self.gamma * np.kron(spin_id, boson_id, PM)]
+        self.l_ops = [self.gamma * ft.reduce(np.kron, [PM, boson_id, spin_id]),
+                      self.gamma * ft.reduce(np.kron, [spin_id, boson_id, PM])]
         return

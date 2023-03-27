@@ -402,7 +402,8 @@ class Simulation():
             self.sz_exact.append([expct(_sz, dm_t) for _sz in self.sz_ops])
             self.sx_exact.append([expct(_sx, dm_t) for _sx in self.sx_ops])
             self.sy_exact.append([expct(_sy, dm_t) for _sy in self.sy_ops])
-            self.bosons_exact.append(expct(self.ada, dm_t))
+            if self.n_bos:
+                self.bosons_exact.append(expct(self.ada, dm_t))
         # connected correlation
         if len(self.spins) == 2:
             for dm_t in self.dm_exact:
@@ -682,19 +683,15 @@ class Simulation():
     def meas_spins_bosons(self, qc: QuantumCircuit) -> None:
         qnum: int = qc.num_qubits
         # ----------------------------------
-        # Z-basis, bosons
-        if len(self.spins) == 1:
-            # Z-basis from previous measurement
-            for probs, _sz in zip([self.evo[-1], self.evo_em[-1]], 
-                                  [self.sz, self.sz_em]):
-                _sz.append(- np.sum(probs[:self.n_bos]) 
-                           + np.sum(probs[self.n_bos:]))
-            # Bosons from previous measurement
+        # Bosons from previous measurements
+        if len(self.spins) == 1 and self.n_bos:
+            # Model.SB1S, Model.SB1SJC, Model.SB1SPZ
             for probs, _occ in zip([self.evo[-1], self.evo_em[-1]], 
                                    [self.bosons, self.bosons_em]):
                 _occ.append(sum((probs[_b] + probs[_b+self.n_bos])*_b 
                                 for _b in range(1, self.n_bos)))
-        elif len(self.spins) == 2:
+        elif len(self.spins) == 2 and self.n_bos:
+            # Model.SB2S, Model.JC2S
             # Bosons from previous measurement
             for probs, _occ in zip([self.evo[-1], self.evo_em[-1]],
                                     [self.bosons, self.bosons_em]):
@@ -708,6 +705,15 @@ class Simulation():
                     * _b
                     for _b in range(1, self.n_bos)
                 ))
+        # ----------------------------------
+        # Z-basis
+        if len(self.spins) == 1:
+            # Z-basis from previous measurements
+            for probs, _sz in zip([self.evo[-1], self.evo_em[-1]], 
+                                  [self.sz, self.sz_em]):
+                _sz.append(- np.sum(probs[:self.n_bos]) 
+                           + np.sum(probs[self.n_bos:]))
+        elif len(self.spins) == 2:
             # Z-basis
             qc_z = qc.copy()
             qc_m = QuantumCircuit(qnum, len(self.spins))

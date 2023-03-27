@@ -11,16 +11,26 @@ import src.plotting as plotting
 def main():
     print('-'*80)
 
+    sim = SSpinBosonSimulation()
+    print(sim)
+    sim.check_results()
     sim = DSpinBosonSimulation()
     print(sim)
+    sim.check_results()
     sim = TwoLvlSimulation()
     print(sim)
+    sim.check_results()
     sim = SSpinBosonSimulation(model=Model.SB1SPZ)
     print(sim)
+    sim.check_results()
     sim = SSpinBosonSimulation(model=Model.SB1SJC)
     print(sim)
+    sim.check_results()
     sim = JCSimulation()
-    print(sim)
+    sim.check_results()
+
+    fig = plotting.plot_states(sim, exact=True)
+    fig.show()
 
     fig = plotting.plot_ifid_vs_dt_env()
     fig.show()

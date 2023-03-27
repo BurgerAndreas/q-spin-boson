@@ -58,7 +58,9 @@ class TwoLvlSimulation(Simulation):
         self.paras = None
         self.enc = None
         self.h = None
+        # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        self.get_simulation()
 
     def set_dimensions(self) -> None:
         """Set dimensions, post selection, and qubit ordering of system."""
