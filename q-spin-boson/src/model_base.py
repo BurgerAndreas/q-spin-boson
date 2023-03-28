@@ -211,6 +211,10 @@ class Simulation():
                 raise ValueError('Unary encodings not supported for JC.')
         if self.h in [H.NOH, H.ISODECOMP]:
             self.enc = Enc.BINARY
+        if self.env == Env.NOENV or self.gamma == 0.:
+            self.gamma = 0.
+            self.env = Env.NOENV
+        return
     
     def set_optimal_product_formula(self) -> None:
         """Set optimal product formula and dt for Trotterization."""
@@ -269,7 +273,8 @@ class Simulation():
     def circuit_example(
             self, 
             backend = AerSimulator(), 
-            initial: bool = False) -> QuantumCircuit:
+            initial: bool = False,
+            transpile: bool = False) -> QuantumCircuit:
         """Circuit for one trotter step.
         Time t = 1.
         """
@@ -280,9 +285,10 @@ class Simulation():
                     if c == '1':
                         qc.x(pos)
         qc = self.add_trotter_step(qc, t=1, reset_a=True)
-        # transpile onto device gates and layout
-        qc = transpile(qc, backend=backend, optimization_level=3, 
-                       basis_gates=['cx', 'id', 'x', 'sx', 'rz', 'reset'])
+        if transpile:
+            # transpile onto device gates and layout
+            qc = transpile(qc, backend=backend, optimization_level=3, 
+                        basis_gates=['cx', 'id', 'x', 'sx', 'rz', 'reset'])
         return qc
     
     def get_gates(
@@ -397,7 +403,10 @@ class Simulation():
             h_obj = Qobj(self.h_mat)
         i_system = np.reshape(self.i_system, [np.size(self.i_system), 1])
         rho0 = Qobj(i_system @ i_system.T)
-        cops = [Qobj(l) for l in self.l_ops] if self.l_ops else []
+        if self.env != Env.NOENV and self.l_ops:
+            cops = [Qobj(l) for l in self.l_ops]
+        else:
+            cops = []
         dm_qutip = mesolve(H=h_obj, rho0=rho0, tlist=self.timesteps, c_ops=cops)
         # evolution
         evo_exact_transpose = [
@@ -492,8 +501,9 @@ class Simulation():
             for t_step, t_point in enumerate(self.timesteps):
                 print(f' Time-step {t_point:.2f}')
                 # Add Trotter step
-                reset_a = t_step > 0 # first timepoint is 0, no evolution
-                qc = self.add_trotter_step(qc, t_point, reset_a)
+                if t_step > 0:
+                    # first timepoint is 0, no evolution
+                    qc = self.add_trotter_step(qc, self.dt, reset_a=True)
                 # Measure
                 self.meas_circuit(qc, self.qubits_system)
         elif self.steps == Steps.NFIXED:
@@ -551,45 +561,45 @@ class Simulation():
             elif self.env == Env.KRAUS:
                 k1, k2 = kraus0_diluted(self.gamma, t)
             # trotterized_evolution
-            for f_a in self.s_a_pairs:
+            for s_a in self.s_a_pairs:
                 if reset_a:
-                    qc.reset(qubit=f_a[1])
+                    qc.reset(qubit=s_a[1])
                 # trotterized_evolution
                 if self.env == Env.PSWAP:
-                    qc.unitary(pswap_arr, [f_a[0], f_a[1]], label='pswap')
+                    qc.unitary(pswap_arr, [s_a[0], s_a[1]], label='pswap')
                 elif self.env == Env.ADMATRIX:
-                    qc.unitary(ad_arr, [f_a[0], f_a[1]], label='adc')
+                    qc.unitary(ad_arr, [s_a[0], s_a[1]], label='adc')
                 elif self.env == Env.ADC:
-                    qc.cry(theta=2*theta, control_qubit=f_a[0], target_qubit=f_a[1])
-                    qc.cx(control_qubit=f_a[1], target_qubit=f_a[0])
+                    qc.cry(theta=2*theta, control_qubit=s_a[0], target_qubit=s_a[1])
+                    qc.cx(control_qubit=s_a[1], target_qubit=s_a[0])
                 elif self.env == Env.KRAUS:
-                    qc.unitary(k2, [f_a[0], f_a[1]], label='k2')
+                    qc.unitary(k2, [s_a[0], s_a[1]], label='k2')
                 elif self.env == Env.GATEFOLDING:
                     #[('rz', 8), ('sx', 6), ('cx', 2), ('x', 1)
                     # {2 CX, 4 SX, 4 RZ} acting on the spin
                     # {2 CX, 2 SX, 4 RZ, 1 X} acting on the auxiliary
                     # SX, RZ extra on auxiliary while spin idle
                     phi = np.pi
-                    qc.barrier(f_a)
+                    qc.barrier(s_a)
                     for _ in range(2):
-                        qc.cx(f_a[0], f_a[1])
-                        qc.barrier(f_a)
+                        qc.cx(s_a[0], s_a[1])
+                        qc.barrier(s_a)
                     for _ in range(5):
                         if _ < 4:
-                            qc.rz(phi=phi, qubit=f_a[0])
+                            qc.rz(phi=phi, qubit=s_a[0])
                         if _ > 0:
-                            qc.rz(phi=phi, qubit=f_a[1])
-                        qc.barrier(f_a)
+                            qc.rz(phi=phi, qubit=s_a[1])
+                        qc.barrier(s_a)
                     # x and sx have same gate time
                     for _ in range(4):  # 
-                        qc.sx(qubit=f_a[0])
+                        qc.sx(qubit=s_a[0])
                         if _ > 1:
-                            qc.sx(qubit=f_a[1])
-                        qc.barrier(f_a)
+                            qc.sx(qubit=s_a[1])
+                        qc.barrier(s_a)
                     # 1 extra x overall
                     for _ in range(1): # 1
-                        qc.x(qubit=f_a[1])
-                        qc.barrier(f_a)
+                        qc.x(qubit=s_a[1])
+                        qc.barrier(s_a)
                 elif self.env != Env.NOENV:
                     raise ValueError(f'Unknown environment {self.env}')
         return qc

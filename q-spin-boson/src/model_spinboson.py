@@ -71,7 +71,7 @@ class SSpinBosonSimulation(Simulation):
             self.qubits_system = [x for x in range(0, self.n_qubits_system)]
             n_qubits_bos = m.ceil(m.sqrt(self.n_bos))
             self.spins = [n_qubits_bos]
-            self.s_a_pairs = [[n_qubits_bos, self.n_qubits_system]]
+            self.s_a_pairs = [[self.n_qubits_system-1, self.n_qubits_system]]
             self.qc_empty = QuantumCircuit(QuantumRegister(n_qubits_bos, 'b'),
                                            QuantumRegister(1, 's'),
                                            QuantumRegister(1, 'a'))
@@ -87,7 +87,7 @@ class SSpinBosonSimulation(Simulation):
             self.qubits_system = [*range(0, self.n_qubits_system)]
             n_qubits_bos = self.bos
             self.spins = [n_qubits_bos]
-            self.s_a_pairs = [[n_qubits_bos, self.n_qubits_system]]
+            self.s_a_pairs = [[self.n_qubits_system-1, self.n_qubits_system]]
             self.qc_empty = QuantumCircuit(QuantumRegister(n_qubits_bos, 'b'),
                                            QuantumRegister(1, 's'),
                                            QuantumRegister(1, 'a'))
@@ -109,6 +109,9 @@ class SSpinBosonSimulation(Simulation):
             self.post_select = unary_sequence(self.d_system)
             self.ordered_keys = unary_sequence(self.n_qubits_system)
         self.n_qubits = self.n_qubits_system + 1
+        # no environment interaction
+        if self.env == Env.NOENV:
+            self.s_a_pairs = None
         return
     
     def set_initial_state(self) -> None:
@@ -139,9 +142,6 @@ class SSpinBosonSimulation(Simulation):
             i_full_binary_rev = ''.join(str(int(p)) for p in i_full[0])
         # qiskit ordering
         self.i_full_binary = i_full_binary_rev[::-1]  
-        # no environment interaction
-        if self.env == Env.NOENV:
-            self.s_a_pairs = None
         return
 
     def build_operators(self) -> None:
@@ -211,7 +211,7 @@ class DSpinBosonSimulation(Simulation):
         # circuit
         if self.enc in [Enc.BINARY, Enc.GRAY, Enc.SPLITUNARY]:
             self.spins = [n_qubits_bos+2, 1]
-            self.s_a_pairs = [[n_qubits_bos+2, n_qubits_bos+3],
+            self.s_a_pairs = [[self.n_qubits_system, self.n_qubits_system+1],
                               [1, 0]]
             self.qc_empty = QuantumCircuit(QuantumRegister(1, 'a1'),
                                             QuantumRegister(1, 's1'),
@@ -241,6 +241,9 @@ class DSpinBosonSimulation(Simulation):
             self.post_select = unary_sequence(self.d_system)
             self.ordered_keys = unary_sequence(self.n_qubits_system)
         self.n_qubits = 1 + self.n_qubits_system + 1
+        # No environment interaction
+        if self.env == Env.NOENV:
+            self.s_a_pairs = None
         return
     
     def set_initial_state(self) -> None:
@@ -271,9 +274,6 @@ class DSpinBosonSimulation(Simulation):
             i_full_binary_rev = ''.join(str(int(p)) for p in i_full[0])
         # Qiskit ordering
         self.i_full_binary = i_full_binary_rev[::-1]  
-        # No environment interaction
-        if self.env == Env.NOENV:
-            self.s_a_pairs = None
         return
     
     def build_operators(self) -> None:

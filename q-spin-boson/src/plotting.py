@@ -7,23 +7,28 @@ from settings.types import Model, Env, H, Axis
 from src.model_base import Simulation
 from src.model_general import simulation
 
+from settings.plot_styles import extended_palette
+
 DTS_DEFAULT = [0.1, 0.2, 0.3, 0.4, 0.5]
 NOISES_DEFAULT = [0.01, 0.1, 1.]
 GAMMAS_DEFAULT = [0., 0.5, 1., 1.5, 2., 2.5]
 
 
-# TODO delete get_simulation
-
-
 def plot_states(sim: Simulation, exact = True):
     """Plot state evolution over time."""
     fig, ax = plt.subplots()
-    ax.plot(sim.evo, sim.timesteps, label=sim.labels)
+    evo = np.asarray(sim.evo) # easier slicing
+    for s in range(np.shape(evo)[1]):
+        ax.plot(sim.timesteps, evo[:, s], label=sim.labels[s],
+                color=extended_palette[s])
     if exact:
-        ax.plot(sim.evo_exact, sim.timesteps, label=None, linestyle='dashed')
+        evo_exact = np.asarray(sim.evo_exact)
+        for s in range(np.shape(evo_exact)[1]):
+            ax.plot(sim.timesteps, evo_exact[:, s], label=None, 
+                    linestyle='dashed', color=extended_palette[s])
     ax.set_xlabel('Time')
-    ax.set_ylabel('State')
-    ax.set_title('State evolution')
+    ax.set_ylabel('States')
+    ax.set_title(f'Noiseless state evolution {sim.model.name}')
     ax.legend()
     return fig
 
@@ -44,36 +49,21 @@ def plot_ifid_vs_dt_env(model: Model = Model.SB1S, dts: List[float] = None):
     for dt in dts:
         # Hamiltonian only
         sim = simulation(model=model, env=Env.NOENV, h=H.FRSTORD, dt=dt)
-        sim.get_simulation()
-        sim.set_labels()
-        sim.simulate_exact_linblad()
-        ifid_avg_h_fo.append(np.sum(sim.infidelity) / 
-                             np.shape(sim.infidelity)[0])
+        ifid_avg_h_fo.append(np.mean(sim.infidelity))
         sim = simulation(model=model, env=Env.NOENV, h=H.SCNDORD, dt=dt)
-        sim.get_simulation()
-        sim.set_labels()
-        ifid_avg_h_so.append(np.sum(sim.infidelity) / 
-                             np.shape(sim.infidelity)[0])
+        ifid_avg_h_so.append(np.mean(sim.infidelity))
         # Environment
         sim = simulation(model=model, env=Env.ADC, h=H.FRSTORD, dt=dt)
-        sim.get_simulation()
-        sim.set_labels()
-        sim.simulate_exact_linblad()
-        ifid_avg_env_fo.append(np.sum(sim.infidelity) / 
-                               np.shape(sim.infidelity)[0])
+        ifid_avg_env_fo.append(np.mean(sim.infidelity))
         sim = simulation(model=model, env=Env.ADC, h=H.SCNDORD, dt=dt)
-        sim.get_simulation()
-        sim.set_labels()
-        sim.simulate_exact_linblad()
-        ifid_avg_env_so.append(np.sum(sim.infidelity) / 
-                               np.shape(sim.infidelity)[0])
+        ifid_avg_env_so.append(np.mean(sim.infidelity))
     ax.plot(dts, ifid_avg_h_fo, label='Hamiltonian only (first order)')
     ax.plot(dts, ifid_avg_env_fo, label='Hamiltonian + environment (first order)')
     ax.plot(dts, ifid_avg_h_so, label='Hamiltonian only (second order)')
     ax.plot(dts, ifid_avg_env_so, label='Hamiltonian + environment (second order)')
     ax.set_xlabel(r'Timestep size dt')
     ax.set_ylabel(r'Time-averaged infidelity')
-    # ax.set_title(r'Time-averaged infidelity over the timestep size dt in noiseless simulations')
+    ax.set_title(r'Time-averaged infidelity over the timestep size dt in noiseless simulations')
     ax.legend()
     return fig
 
@@ -98,16 +88,10 @@ def plot_ifid_vs_dt_noises(model: Model = Model.SB1S,
         for noise in noises:
             sim = simulation(model=model, env=env, h=H.FRSTORD, dt=dt, 
                              noise=noise)
-            sim.get_simulation() # TODO
-            sim.set_labels()
-            sim.simulate_exact_linblad()
             ifid_avg_fo.append(np.sum(sim.infidelity_em) / 
                                np.shape(sim.infidelity_em)[0])
             sim = simulation(model=model, env=env, h=H.SCNDORD, dt=dt, 
                              noise=noise)
-            sim.get_simulation()
-            sim.set_labels()
-            sim.simulate_exact_linblad()
             ifid_avg_so.append(np.sum(sim.infidelity_em) / 
                                np.shape(sim.infidelity_em)[0])
     for n_noise, noise in enumerate(noises):
@@ -140,8 +124,6 @@ def plot_ifid_vs_noise(model: Model = Model.SB1S,
     for noise in noises:
         sim = simulation(model=model, env=env, h=h, dt=dt, 
                          noise=noise)
-        sim.get_simulation()
-        sim.simulate_exact_linblad()
         ifid_avg.append(np.sum(sim.infidelity_em) / 
                         np.shape(sim.infidelity_em)[0])
         ifid_final.append(sim.infidelity_em[-1])
@@ -170,11 +152,9 @@ def plot_ifid_vs_time(model: Model = Model.SB1S,
     for noise in noises:
         sim = simulation(model=model, env=env, h=H.FRSTORD, dt=dt, 
                          noise=noise)
-        sim.get_simulation()
         ifid_fo.append(sim.infidelity)
         sim = simulation(model=model, env=env, h=H.SCNDORD, dt=dt, 
                          noise=noise)
-        sim.get_simulation()
         ifid_so.append(sim.infidelity)
     for n_noise, noise in enumerate(noises):
         ax.plot(ifid_fo[n_noise], label=f'First order, noise={noise}')
@@ -203,7 +183,6 @@ def plot_ifid_vs_gamma(model: Model = Model.SB1S,
     for gamma in gammas:
         sim = simulation(model=model, env=env, h=h, dt=dt, 
                          noise=noise, gamma=gamma)
-        sim.get_simulation()
         ifid_avg.append(np.sum(sim.infidelity) / 
                         np.shape(sim.infidelity)[0])
         ifid_avg_noise.append(np.sum(sim.infidelity_em) / 
@@ -233,9 +212,8 @@ def plot_ifid_vs_time_gammas(model: Model = Model.SB1S,
     for gamma in gammas:
         sim = simulation(model=model, env=env, h=h, dt=dt, 
                          noise=noise, gamma=gamma)
-        sim.get_simulation()
         ifid.append(sim.infidelity)
-    for n_gamma, gamma in gammas:
+    for n_gamma, gamma in enumerate(gammas):
         ax.plot(ifid[n_gamma], label=f'Gamma={gamma}')
     ax.set_xlabel(r'Time')
     ax.set_ylabel(r'Infidelity')
@@ -256,12 +234,12 @@ def plot_bosons(model: Model = Model.SB1S,
     fig, ax = plt.subplots()
     for n_boson, boson in enumerate(bosons):
         for noise in noises:
-            sim = simulation(model=model, env=env, noise=noise, n_boson=boson)
+            sim = simulation(model=model, env=env, noise=noise, n_bos=boson)
             sim.set_optimal_product_formula()
             sim.get_simulation()
             ax.plot(sim.timesteps, sim.bosons_em, 
                     label=f'Boson={boson}, noise={noise}')
-        sim = simulation(model=model, env=env, noise=min(noises), n_boson=boson)
+        sim = simulation(model=model, env=env, noise=min(noises), n_bos=boson)
         sim.set_optimal_product_formula()
         sim.get_simulation()
         ax.plot(sim.timesteps, sim.bosons_exact, label=f'Boson={boson}, exact')

@@ -85,6 +85,9 @@ class JCSimulation(Simulation):
                 ordered_keys.append(f'1{key}1')
             self.ordered_keys = ordered_keys
             self.post_select = ordered_keys
+        # No environment interaction
+        if self.env == Env.NOENV:
+            self.s_a_pairs = None
         return
     
     def set_initial_state(self) -> None:
@@ -93,7 +96,7 @@ class JCSimulation(Simulation):
         bb = np.eye(self.n_bos, dtype=int) # boson basis vectors (onehot)
         self.i_system: NDArray = ft.reduce(np.kron, [EX1, bb[0], GS0])
         if self.initial is not None:
-            if initial.shape != i_system.shape:
+            if self.initial.shape != self.i_system.shape:
                 raise ValueError(
                     f'Initial state must have length {2**self.n_qubits_system}!')
             self.i_system = self.initial
@@ -104,8 +107,8 @@ class JCSimulation(Simulation):
             np.nonzero(i_full)[0][0], self.n_qubits)
         if self.enc == Enc.GRAY:
             binary_keys_system = sb_sequence(numbers=len(self.ordered_keys))
-            ones_in_binary = binary_keys.index(i_full_binary_rev)
-            i_full_binary_rev = ordered_keys[ones_in_binary]
+            ones_in_binary = binary_keys_system.index(i_full_binary_rev)
+            i_full_binary_rev = self.ordered_keys[ones_in_binary]
         # Qiskit ordering
         self.i_full_binary = i_full_binary_rev[::-1] 
         return

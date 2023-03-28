@@ -74,6 +74,9 @@ class TwoLvlSimulation(Simulation):
         self.s_a_pairs = [[0, 1]]
         self.ordered_keys = ['0', '1']
         self.post_select = self.ordered_keys
+        # No environment interaction
+        if self.env == Env.NOENV:
+            self.s_a_pairs = None
         return
     
     def set_initial_state(self) -> None:

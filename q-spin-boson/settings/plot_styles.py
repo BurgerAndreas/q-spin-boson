@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
+import math
 
 
 cmpldefault = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
@@ -77,8 +78,7 @@ def extra_legend_fig(fname, _lines, _labels, _vert=False):
   #_legendfig.set_figheight(.8*num_rows)
   #_legendfig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
   _legendfig.tight_layout(pad=0)
-  _legendfig.savefig(fname + '_legend' + pltfile, format=pltformat)
-  if shwplts: _legendfig.show()
+  _legendfig.savefig(f'{fname}_legend{pltfile}', format=pltformat)
 
   #_legendfig, _legendax = plt.subplots()
   #_legendax.legend(lines_for_legend, label_by_op, loc='center', fontsize=labelsize, ncol=3)
