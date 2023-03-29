@@ -1,0 +1,12 @@
+\documentclass[border=2px]{standalone}
+
+\usepackage[braket, qm]{qcircuit}
+\usepackage{graphicx}
+
+\begin{document}
+\scalebox{1.0}{
+\Qcircuit @C=1.0em @R=1.0em @!R { \\
+	 	\nghost{{s} :  } & \lstick{{s} :  } & \multigate{1}{\mathrm{D}}_<<<{} & \qw & \qw & \qw\\
+	 	\nghost{{a} :  } & \lstick{{a} :  } & \ghost{\mathrm{D}}_<<<{} & \gate{\mathrm{\left|0\right\rangle}} & \qw & \qw\\
+\\ }}
+\end{document}

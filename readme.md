@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ### Conda
 
 ```bash
-conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebook qutip -y
+conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebook qutip ipympl -y
 
 python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments pylatexenc matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
 ```
@@ -54,11 +54,12 @@ q-spin-boson/
 |   |
 |   |-- model_base.py # simulation base class. called by model_<...>.py
 |   |-- model_<...>.py # simulation subclasses. called by main.py
-|   |-- plotting.py # plot simulations
+|   |-- plot_simulations.py # plot simulations
+|   |-- plot_illustrations.py # circuit illustrations
 |
 |-- main.py
-|-- plots_paper.py
-|-- plots_thesis.py # tbd
+|-- paper.ipynb
+|-- masterthesis.ipynb
 ```
 
 ## Class Structure

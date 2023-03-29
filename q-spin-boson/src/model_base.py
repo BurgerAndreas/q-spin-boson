@@ -30,6 +30,7 @@ from qiskit.ignis.verification.tomography import state_tomography_circuits, Stat
 from qiskit.ignis.mitigation.measurement import complete_meas_cal, CompleteMeasFitter
 from qiskit.synthesis import QDrift, LieTrotter, SuzukiTrotter
 
+from settings.paths import DIR_SAVED_MODELS, DIR_PLOTS, DIR_PLOTS_CIRCUIT, PIC_FILE
 from settings.types import Enc, Env, H, Model, Steps, Axis
 from settings.parameters import Paras
 from src.helpers.noise_modeling import modified_noise_model
@@ -40,12 +41,6 @@ from src.helpers.binary import unary_sequence, sb_sequence, get_seq, fillin_coun
 from src.helpers.error_mitigation import mitigate_error
 from src.helpers.operators import expct, get_state_label, dm_fidelity
 
-# Set file locations
-DIR_FILE = os.path.dirname(os.path.realpath(__file__))
-DIR_SAVED_MODELS = os.path.join(DIR_FILE, '../data/saved-models/')
-DIR_PLOTS = os.path.join(DIR_FILE, '../data/plots/')
-DIR_PLOTS_CIRCUIT = os.path.join(DIR_FILE, '../data/plots-circuits/')
-PIC_FILE = 'png'
 
 class Simulation():
     """Simulation base class. 
@@ -273,8 +268,7 @@ class Simulation():
     def circuit_example(
             self, 
             backend = AerSimulator(), 
-            initial: bool = False,
-            transpile: bool = False) -> QuantumCircuit:
+            initial: bool = False) -> QuantumCircuit:
         """Circuit for one trotter step.
         Time t = 1.
         """
@@ -285,10 +279,12 @@ class Simulation():
                     if c == '1':
                         qc.x(pos)
         qc = self.add_trotter_step(qc, t=1, reset_a=True)
-        if transpile:
+        if backend == AerSimulator():
             # transpile onto device gates and layout
-            qc = transpile(qc, backend=backend, optimization_level=3, 
-                        basis_gates=['cx', 'id', 'x', 'sx', 'rz', 'reset'])
+            qc = transpile(qc, backend=AerSimulator(), optimization_level=3,
+                           basis_gates=['cx', 'id', 'x', 'sx', 'rz', 'reset'])
+        else:
+            qc = transpile(qc, backend=backend, optimization_level=3)
         return qc
     
     def get_gates(
@@ -297,7 +293,15 @@ class Simulation():
             initial: bool = False) -> tuple[int, dict]:
         """Gates necessary for one trotter step."""
         qc = self.circuit_example(backend, initial)
-        return qc.depth(), qc.count_ops()
+        n_single = 0
+        n_cx = 0
+        gates = qc.count_ops()
+        for gate in gates:
+            if gate == 'cx':
+                n_cx += gates[gate]
+            elif gate != 'reset':
+                n_single += gates[gate]
+        return qc.depth(), gates, n_single, n_cx
 
     def save_layout(
             self, 
@@ -312,8 +316,8 @@ class Simulation():
         # qubit mapping onto device
         qc = self.circuit_example(backend, initial)
         fig = plot_circuit_layout(qc, backend)
-        fig.savefig(fname=f'{DIR_PLOTS_CIRCUIT}{self.name}_layout.{PIC_FILE}')
-        # fig.show()
+        fig.savefig(fname=f'{DIR_PLOTS_CIRCUIT}{self.name}_layout.{PIC_FILE}', 
+                    bbox_inches='tight')
         return 
 
     def save_circuit_latex(

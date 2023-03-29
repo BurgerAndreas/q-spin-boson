@@ -1,0 +1,14 @@
+\documentclass[border=2px]{standalone}
+
+\usepackage[braket, qm]{qcircuit}
+\usepackage{graphicx}
+
+\begin{document}
+\scalebox{1.0}{
+\Qcircuit @C=1.0em @R=0.2em @!R { \\
+	 	\nghost{{b}_{0} :  } & \lstick{{b}_{0} :  } & \qw \barrier[0em]{3} & \qw & \multigate{2}{\mathrm{U}}_<<<{} & \qw & \multigate{2}{\mathrm{U}}_<<<{} & \qw & \multigate{2}{\mathrm{U}}_<<<{} & \qw \barrier[0em]{3} & \qw & \gate{\mathrm{M}} & \qw & \qw\\
+	 	\nghost{{b}_{1} :  } & \lstick{{b}_{1} :  } & \qw & \qw & \ghost{\mathrm{U}}_<<<{} & \qw & \ghost{\mathrm{U}}_<<<{} & \qw & \ghost{\mathrm{U}}_<<<{} & \qw & \qw & \gate{\mathrm{M}} & \qw & \qw\\
+	 	\nghost{{s} :  } & \lstick{{s} :  } & \gate{\mathrm{X}} & \qw & \ghost{\mathrm{U}}_<<<{} & \multigate{1}{\mathrm{D}}_<<<{} & \ghost{\mathrm{U}}_<<<{} & \multigate{1}{\mathrm{D}}_<<<{} & \ghost{\mathrm{U}}_<<<{} & \multigate{1}{\mathrm{D}}_<<<{} & \qw & \gate{\mathrm{M}} & \qw & \qw\\
+	 	\nghost{{a} :  } & \lstick{{a} :  } & \qw & \qw & \qw & \ghost{\mathrm{D}}_<<<{} & \gate{\mathrm{\left|0\right\rangle}} & \ghost{\mathrm{D}}_<<<{} & \gate{\mathrm{\left|0\right\rangle}} & \ghost{\mathrm{D}}_<<<{} & \qw & \qw & \qw & \qw\\
+\\ }}
+\end{document}

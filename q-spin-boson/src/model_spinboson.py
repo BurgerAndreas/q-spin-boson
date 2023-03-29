@@ -68,7 +68,7 @@ class SSpinBosonSimulation(Simulation):
         self.d_system = 2 * self.n_bos
         if self.enc in [Enc.BINARY, Enc.GRAY]:
             self.n_qubits_system = m.ceil(m.sqrt(self.d_system))
-            self.qubits_system = [x for x in range(0, self.n_qubits_system)]
+            self.qubits_system = [x for x in range(self.n_qubits_system)]
             n_qubits_bos = m.ceil(m.sqrt(self.n_bos))
             self.spins = [n_qubits_bos]
             self.s_a_pairs = [[self.n_qubits_system-1, self.n_qubits_system]]
