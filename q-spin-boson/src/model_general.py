@@ -1,7 +1,7 @@
 from settings.types import Model, Env, H, Steps, Enc
 from settings.parameters import Paras
 from src.model_spinboson import SSpinBosonSimulation, DSpinBosonSimulation
-from src.model_js import JCSimulation
+from src.model_jc import JCSimulation
 from src.model_twolevel import TwoLvlSimulation
 
 def simulation(

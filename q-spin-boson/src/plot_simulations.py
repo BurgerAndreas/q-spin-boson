@@ -240,7 +240,7 @@ def plot_ifid_vs_gamma(model: Model = Model.SB1S,
         ifid_avg.append(np.mean(sim.infidelity))
         ifid_avg_noise.append(np.mean(sim.infidelity_em))
     # plot
-    ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+    ls = 'dashed' if h == H.SCNDORD else 'solid'
     l1, = ax.plot(gammas, ifid_avg, ls=ls)
     l2, = ax.plot(gammas, ifid_avg_noise, ls=ls)
     fname = f'ifid_vs_gamma_{model.value}_{env.value}_{h.value}_{dt:.2f}'
@@ -279,7 +279,7 @@ def plot_ifid_vs_time_gammas(model: Model = Model.SB1S,
     lines = []
     labels = []
     cs = get_blues(len(gammas))
-    ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+    ls = 'dashed' if h == H.SCNDORD else 'solid'
     for n_gamma, gamma in enumerate(gammas):
         l, = ax.plot(sim.timesteps, ifid[n_gamma], c=cs[n_gamma], ls=ls)
         lines.append(l)
@@ -352,7 +352,8 @@ def plot_spin(model: Model = Model.SB1S,
     for n_noise, noise in enumerate(noises):
         sim = simulation(model=model, env=env, noise=noise, 
                      optimal_formula=True)
-        l, = ax.plot(sim.timesteps, sim.s_em[saxis], c=cs[n_noise])
+        ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+        l, = ax.plot(sim.timesteps, sim.s_em[saxis], ls=ls, c=cs[n_noise])
         lines.append(l)
         labels.append(f'Noise={noise}')
     # exact
@@ -383,15 +384,19 @@ def plot_spincorrelation(model: Model = Model.SB2S,
     #
     lines = []
     labels = []
-    for noise in noises:
+    cs = get_blues(len(noises))
+    for n_noise, noise in enumerate(noises):
         sim = simulation(model=model, env=env, noise=noise, 
                      optimal_formula=True)
-        l, = ax.plot(sim.timesteps, sim.scorr_em[saxis])
+        ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+        l, = ax.plot(sim.timesteps, sim.scorr_em[saxis], ls=ls, c=cs[n_noise])
         lines.append(l)
         labels.append(f'Noise={noise}')
+    # exact
     sim = simulation(model=model, env=env, noise=min(noises), 
                      optimal_formula=True)
-    l, = ax.plot(sim.timesteps, sim.scorr_exact[saxis], linestyle='dashed')
+    l, = ax.plot(sim.timesteps, sim.scorr_exact[saxis], linestyle='dashed', 
+                 c=cs[0])
     fname = f'spincorrelation_{saxis.value}_{model.value}_{env.value}'
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Time')

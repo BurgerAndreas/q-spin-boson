@@ -533,7 +533,7 @@ class Simulation():
 
     def simulate_qc(self) -> None:
         """Calculate the model"""
-        reset_containers(self)
+        self.reset_containers()
         # Loop over all time steps
         if self.steps == Steps.LOOP:
             qc = self.qc_empty.copy()
