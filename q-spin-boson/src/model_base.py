@@ -61,7 +61,8 @@ class Simulation():
                  dt: float, 
                  eta: int, 
                  noise: float = 1.,
-                 initial: NDArray = None):
+                 initial: NDArray = None,
+                 optimal_formula: bool = False):
         """Create a Simulation object.
         To load / simulate the model, use the get_simulation() method.
         Args:
@@ -217,6 +218,8 @@ class Simulation():
             self.h, self. dt = self.opt_prdctfrml[self.noise]
         else:
             self.h, self. dt = self.opt_prdctfrml[.1]
+        self.load_status: int = 0
+        self.get_simulation()
         return
 
     def update_name(self):
@@ -363,6 +366,26 @@ class Simulation():
                             Axis.YAX: self.sycorr_exact}
         return
     
+    def reset_containers(self) -> None:
+        """Empty containers for simulation results.
+        So we can savely use .append() later.
+        """
+        self.evo = []
+        self.evo_em = []
+        self.dm = []
+        self.dm_em = []
+        self.ps_quota = []
+        self.ps_quota_em = []
+        # s*, s*em and s*corr, s*corr_em
+        for s in self.s:
+            self.s[s] = []
+            self.s_em[s] = []
+            self.scorr[s] = []
+            self.scorr_em[s] = []
+        self.bosons = []
+        self.bosons_em = []
+        return
+
     def simulate_model(self) -> None:
         print('-'*40)
         print(f'Simulating model: {self.name}')
@@ -400,6 +423,7 @@ class Simulation():
         return
 
     def simulate_exact_linblad(self) -> None:
+        """Simulate exact dynamics with qutip."""
         if self.h_mat is None:
             # TwoLevel has no Hamiltonian
             h_obj = Qobj(np.zeros([self.d_system, self.d_system]))
@@ -422,21 +446,35 @@ class Simulation():
         self.dm_exact = [dm_qutip.states[t_step].data.toarray() 
                          for t_step in range(len(self.timesteps))]
         # calculate observables from density matrix
+        sz_exact = []
+        sx_exact = []
+        sy_exact = []
+        bosons_exact = []
         for dm_t in self.dm_exact:
-            self.sz_exact.append([expct(_sz, dm_t) for _sz in self.sz_ops])
-            self.sx_exact.append([expct(_sx, dm_t) for _sx in self.sx_ops])
-            self.sy_exact.append([expct(_sy, dm_t) for _sy in self.sy_ops])
+            sz_exact.append([expct(_sz, dm_t) for _sz in self.sz_ops])
+            sx_exact.append([expct(_sx, dm_t) for _sx in self.sx_ops])
+            sy_exact.append([expct(_sy, dm_t) for _sy in self.sy_ops])
             if self.n_bos:
-                self.bosons_exact.append(expct(self.ada, dm_t))
+                bosons_exact.append(expct(self.ada, dm_t))
+        self.sz_exact = sz_exact
+        self.sx_exact = sx_exact
+        self.sy_exact = sy_exact
+        self.bosons_exact = bosons_exact
         # connected correlation
         if len(self.spins) == 2:
+            szcorr_exact = []
+            sxcorr_exact = []
+            sycorr_exact = []
             for dm_t in self.dm_exact:
                 for _corr, _ops in zip(
-                    [self.szcorr_exact, self.sxcorr_exact, self.sycorr_exact],
+                    [szcorr_exact, sxcorr_exact, sycorr_exact],
                     [self.sz_ops, self.sx_ops, self.sy_ops]):
                     _corr.append(
                         expct(dm_t, _ops[0] @ _ops[1]) 
                         - (expct(dm_t, _ops[0]) * expct(dm_t, _ops[1])))
+            self.szcorr_exact = szcorr_exact
+            self.sxcorr_exact = sxcorr_exact
+            self.sycorr_exact = sycorr_exact
         return 
     
     def set_default_simulation_parameters(self) -> None:
@@ -495,6 +533,7 @@ class Simulation():
 
     def simulate_qc(self) -> None:
         """Calculate the model"""
+        reset_containers(self)
         # Loop over all time steps
         if self.steps == Steps.LOOP:
             qc = self.qc_empty.copy()
@@ -539,6 +578,7 @@ class Simulation():
         return 
 
     def add_trotter_step(self, qc, t, reset_a=True) -> QuantumCircuit:
+        """Add Trotter step to qc."""
         if self.h == H.SCNDORD:
             # same as PTE(Suzuki(order=1)), PTE('suzuki')
             trotterized_op = PauliEvolutionGate(self.h_op, time=t, synthesis=SuzukiTrotter(order=2, reps=1))
@@ -609,6 +649,9 @@ class Simulation():
         return qc
 
     def meas_tomography(self, qc, meas_qubits) -> None:
+        """Quantum state tomography.
+        Appends to dm and dm_em.
+        """
         # Error Mitigation -> use qiskit ignis
         # Lossless tomography
         qc_qst = state_tomography_circuits(qc, meas_qubits)
@@ -652,7 +695,9 @@ class Simulation():
         return 0
 
     def meas_system(self, qc: QuantumCircuit, meas_qubits: List[int]) -> None:
-        """Z-basis measurement of the system qubits."""
+        """Z-basis measurement of the system qubits.
+        Appends to evo, evo_em and ps_quota, ps_quota_em.
+        """
         qnum = qc.num_qubits
         backend_ll = AerSimulator()
         n_q_meas = len(meas_qubits)
@@ -708,6 +753,9 @@ class Simulation():
         return counts_select, shots_select
             
     def meas_spins_bosons(self, qc: QuantumCircuit) -> None:
+        """Z-basis measurement of the spin and boson qubits.
+        Appends to s*, s*_em, and s*corr, s*corr_em and bosons, bosons_em. 
+        """
         qnum: int = qc.num_qubits
         # ----------------------------------
         # Bosons from previous measurements
@@ -885,19 +933,23 @@ class Simulation():
         return 
     
     def compare_simulations(self) -> None:
-        """Fidelity"""
+        """Fidelity and other error metrics between exact and qc simulations."""
         if self.qst:
+            infidelity = []
+            infidelity_em = []
             for t_step in range(len(self.timesteps)):
-                self.infidelity.append(
+                infidelity.append(
                     np.real(dm_fidelity(
                     true=self.dm_exact[t_step], 
                     approx=self.dm[t_step], 
                     inv=True)))
-                self.infidelity_em.append(
+                infidelity_em.append(
                     np.real(dm_fidelity(
                     true=self.dm_exact[t_step], 
                     approx=self.dm_em[t_step], 
                     inv=True)))
+            self.infidelity = infidelity
+            self.infidelity_em = infidelity_em
         # absolute error
         self.ae = np.abs(np.array(self.evo) - np.array(self.evo_exact))
         self.ae_em = np.abs(np.array(self.evo_em) - np.array(self.evo_exact))

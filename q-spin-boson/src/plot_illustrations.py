@@ -24,9 +24,10 @@ def save_circuit_latex(qc, name):
         look_for = "<<<{" + str(number) + "}"
         latex_source = latex_source.replace(look_for,"<<<{}")
     # save
-    with open(f'{DIR_PLOTS_CIRCUIT}{name}.tex', 'w') as f:
+    dir = f'{DIR_PLOTS_CIRCUIT}{name}.tex'
+    with open(dir, 'w') as f:
         f.write(latex_source)
-    return latex_source, qc
+    return dir, latex_source, qc
 
 
 def circuit_adc():

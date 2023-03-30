@@ -13,13 +13,13 @@ cmpldefault = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
 
 primary_palette = sns.color_palette().as_hex()
 
-# for evolutions
+# For evolutions
 extended_palette = primary_palette \
     + sns.color_palette(palette='pastel').as_hex() \
     + sns.color_palette(palette='dark').as_hex() \
     + sns.color_palette(palette='muted').as_hex()
 
-# JC
+# For evolutions of the Jaynes-Cummings model
 cs_evo_jc = sns.color_palette(palette='dark').as_hex() + sns.color_palette(palette='pastel').as_hex()
 cs_evo_jc[3] = primary_palette[0]
 cs_evo_jc[4] = primary_palette[1]
@@ -29,14 +29,16 @@ cs_evo_jc[10] = primary_palette[5]
 # ['#ffea9b', '#fece6a', '#fea245', '#fc6832', '#ea2920', '#c20325'] 
 cgammas_alt = sns.color_palette("YlOrRd").as_hex()
 
-cgammas3 = sns.cubehelix_palette(hue=1., gamma=1., light=0.85, dark=.05, rot=0., start=2.6, n_colors=3) # blue
-cgammas = sns.cubehelix_palette(hue=1., gamma=1., light=0.85, dark=.05, rot=0., start=2.6, n_colors=5) # blue
-cgammas6 = sns.cubehelix_palette(hue=1., gamma=1., light=0.85, dark=.05, rot=0., start=2.6, n_colors=6) # blue
+# Used when comparing three noise levels and a exact reference
+c_exact = '#02818a'
+
+def get_blues(n_colors=3):
+    """Get a list of blue colors. From light to dark."""
+    return sns.cubehelix_palette(hue=1., gamma=1., light=0.8, dark=.05, 
+                                 rot=0., start=2.6, n_colors=n_colors)
 
 # #debb9b #8c613c
 csbarchart = ['#4878d0', '#ee854a', '#6acc64', '#d65f5f', '#797979', '#82c6e2'] 
-
-cexact = '#02818a'
 
 # markers
 mr_list = ['o', 'v', 'P', '.', 5, 'x']
@@ -73,15 +75,21 @@ def save_legend_extra(lines, labels, fname=None) -> str:
     return loc if fname else fig_legend
 
 
+# def set_plot_style():
+#     """Set plot style for all plots."""
+#     sns.set_theme(style="ticks", palette=extended_palette)
+#     # spacing inside the graph
+#     plt.margins(SIZE_MARGIN)
+#     plt.rcParams['font.size'] = str(SIZE_TEXT)
+#     plt.rcParams.update({"text.usetex": True, "font.family": "serif", "font.serif": "Times New Roman"})
+#     return
+
 def set_plot_style():
     """Set plot style for all plots."""
-    sns.set_theme(style="ticks", palette=extended_palette)
-    # spacing inside the graph
-    plt.margins(SIZE_MARGIN)
-    plt.rcParams['font.size'] = str(SIZE_TEXT)
-    plt.rcParams.update({"text.usetex": True, "font.family": "serif", "font.serif": "Times New Roman"})
+    sns.set_theme()
+    # style="ticks", 'whitegrid'
+    # palette=extended_palette
     return
-
 
 def get_xlabels(_xdata):
     """Get xlabels for a given xdata with appropiate spacing.

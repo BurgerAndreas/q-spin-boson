@@ -45,10 +45,11 @@ class SSpinBosonSimulation(Simulation):
                  dt = 0.3, 
                  eta = 1,
                  noise = .1,
-                 initial = None):
+                 initial = None,
+                 optimal_formula = False):
         """Spin-boson model with a single spin."""
         super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, 
-                         eta, noise, initial)
+                         eta, noise, initial, optimal_formula)
         self.backend = FakeJakarta()
         self.opt_prdctfrml = {0.01: [H.SCNDORD, 0.2], 
                               0.1: [H.FRSTORD, 0.2],
@@ -58,6 +59,8 @@ class SSpinBosonSimulation(Simulation):
             raise ValueError(f"Wrong class for model {self.model}.")
         # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        if optimal_formula:
+            self.set_optimal_product_formula()
         self.get_simulation()
     
     def set_dimensions(self) -> None:
@@ -179,10 +182,11 @@ class DSpinBosonSimulation(Simulation):
                  dt = 0.3, 
                  eta = 1,
                  noise = .1,
-                 initial = None):
+                 initial = None,
+                 optimal_formula = False):
         """Spin-boson model with two spins."""
         super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, 
-                         eta, noise, initial)
+                         eta, noise, initial, optimal_formula)
         self.backend = FakeJakarta()
         self.opt_prdctfrml = {0.01: [H.SCNDORD, 0.2], 
                               0.1: [H.FRSTORD, 0.2],
@@ -191,10 +195,15 @@ class DSpinBosonSimulation(Simulation):
         self.model = Model.SB2S
         # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        if optimal_formula:
+            self.set_optimal_product_formula()
         self.get_simulation()
 
     def set_dimensions(self) -> None:
-        """Set dimensions, post selection, and qubit ordering of system."""
+        """Set dimensions, post selection, and qubit ordering of system.
+        Sets n_qubits_system, qubits_system, qc_empty, post_select,
+        ordered_keys.
+        """
         # Hamiltonian, Pauli: s1-HO-s2
         # Circuit: s2-HO-s1
         # Keys: s1-HO-s2

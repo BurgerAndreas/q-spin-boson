@@ -3,11 +3,13 @@ import matplotlib.pyplot as plt
 from typing import List, Sequence, Any # typechecking with mypy
 from numpy.typing import NDArray # typechecking with mypy
 
+from settings.parameters import Paras
 from settings.types import Model, Env, H, Axis
 from src.model_base import Simulation
 from src.model_general import simulation
 
-from settings.plot_styles import extended_palette, save_legend_extra
+from settings.plot_styles import save_legend_extra, get_blues, \
+    extended_palette
 from settings.paths import PIC_FILE, DIR_PLOTS
 
 DTS_DEFAULT = [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -38,7 +40,7 @@ def plot_states(sim: Simulation, noisy = True, exact = True):
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel('Time')
     ax.set_ylabel('States')
-    ax.set_title(f'Noiseless state evolution {sim.model.name}')
+    ax.set_title(f'Noiseless state evolution {sim.model.value}')
     loc = f'{DIR_PLOTS}{fname}.{PIC_FILE}'
     fig.savefig(loc, format=PIC_FILE)
     return loc, legend_fig
@@ -53,28 +55,29 @@ def plot_ifid_vs_dt_env(model: Model = Model.SB1S, dts: List[float] = None):
     if dts is None:
         dts = DTS_DEFAULT
     fig, ax = plt.subplots()
-    ifid_avg_h_fo = [] # 1st order
-    ifid_avg_env_fo = []
-    ifid_avg_h_so = [] # 2nd order
-    ifid_avg_env_so = []
+    ifid_avg_h_o1 = [] # 1st order
+    ifid_avg_env_o1 = []
+    ifid_avg_h_o2 = [] # 2nd order
+    ifid_avg_env_o2 = []
     for dt in dts:
         # Hamiltonian
         sim = simulation(model=model, env=Env.NOENV, h=H.FRSTORD, dt=dt)
-        ifid_avg_h_fo.append(np.mean(sim.infidelity))
+        ifid_avg_h_o1.append(np.mean(sim.infidelity))
         sim = simulation(model=model, env=Env.NOENV, h=H.SCNDORD, dt=dt)
-        ifid_avg_h_so.append(np.mean(sim.infidelity))
+        ifid_avg_h_o2.append(np.mean(sim.infidelity))
         # Environment
         sim = simulation(model=model, env=Env.ADC, h=H.FRSTORD, dt=dt)
-        ifid_avg_env_fo.append(np.mean(sim.infidelity))
+        ifid_avg_env_o1.append(np.mean(sim.infidelity))
         sim = simulation(model=model, env=Env.ADC, h=H.SCNDORD, dt=dt)
-        ifid_avg_env_so.append(np.mean(sim.infidelity))
-    l1, = ax.plot(dts, ifid_avg_h_fo)
-    l2, = ax.plot(dts, ifid_avg_env_fo)
-    l2, = ax.plot(dts, ifid_avg_h_so)
-    l3, = ax.plot(dts, ifid_avg_env_so)
-    fname = f'ifid_vs_dt_env_{model.name}'
+        ifid_avg_env_o2.append(np.mean(sim.infidelity))
+    # plot
+    l1, = ax.plot(dts, ifid_avg_h_o1, c=extended_palette[0])
+    l2, = ax.plot(dts, ifid_avg_env_o1, c=extended_palette[1])
+    l3, = ax.plot(dts, ifid_avg_h_o2, c=extended_palette[0], ls='dashed')
+    l4, = ax.plot(dts, ifid_avg_env_o2, c=extended_palette[1], ls='dashed')
+    fname = f'ifid_vs_dt_env_{model.value}'
     legend_fig = save_legend_extra(
-        [l1, l2, l3], 
+        [l1, l2, l3, l4], 
         ['Hamiltonian (1st order)', 
         'Hamiltonian + environment (1st order)', 
         'Hamiltonian (2nd order)', 
@@ -101,27 +104,32 @@ def plot_ifid_vs_dt_noises(model: Model = Model.SB1S,
         dts = DTS_DEFAULT
     if noises is None:
         noises = NOISES_DEFAULT
+    noises.sort()
     fig, ax = plt.subplots()
-    ifid_avg_fo = [] # 1st order
-    ifid_avg_so = [] # 2nd order
+    ifid_avg_o1 = [] # 1st order
+    ifid_avg_o2 = [] # 2nd order
     for dt in dts:
         for noise in noises:
             sim = simulation(model=model, env=env, h=H.FRSTORD, dt=dt, 
                              noise=noise)
-            ifid_avg_fo.append(np.mean(sim.infidelity_em))
+            ifid_avg_o1.append(np.mean(sim.infidelity_em))
             sim = simulation(model=model, env=env, h=H.SCNDORD, dt=dt, 
                              noise=noise)
-            ifid_avg_so.append(np.mean(sim.infidelity_em))
+            ifid_avg_o2.append(np.mean(sim.infidelity_em))
+    # plot
     lines = []
     labels = []
+    cs = get_blues(len(noises))
     for n_noise, noise in enumerate(noises):
-        l, = ax.plot(dts, ifid_avg_fo[n_noise::len(noises)])
+        l, = ax.plot(dts, ifid_avg_o1[n_noise::len(noises)], 
+                     c=cs[n_noise])
         lines.append(l)
         labels.append(f'1st order, noise={noise}')
-        l, = ax.plot(dts, ifid_avg_so[n_noise::len(noises)]) 
+        l, = ax.plot(dts, ifid_avg_o2[n_noise::len(noises)],
+                     c=cs[n_noise], ls='dashed') 
         lines.append(l)
         labels.append(f'2nd order, noise={noise}')
-    fname = f'ifid_vs_dt_noises_{model.name}_{env.name}'
+    fname = f'ifid_vs_dt_noises_{model.value}_{env.value}'
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Timestep size')
     ax.set_ylabel(r'Time-averaged infidelity')
@@ -151,9 +159,11 @@ def plot_ifid_vs_noise(model: Model = Model.SB1S,
                          noise=noise)
         ifid_avg.append(np.mean(sim.infidelity_em))
         ifid_final.append(sim.infidelity_em[-1])
-    l1, = ax.plot(noises, ifid_avg)
-    l2, = ax.plot(noises, ifid_final)
-    fname = f'ifid_vs_noise_{model.name}_{env.name}_{h.name}'
+    # plot
+    ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+    l1, = ax.plot(noises, ifid_avg, ls=ls)
+    l2, = ax.plot(noises, ifid_final, ls=ls)
+    fname = f'ifid_vs_noise_{model.value}_{env.value}_{h.value}'
     legend_fig = save_legend_extra(
         [l1, l2], 
         ['Time-averaged infidelity', 'Final infidelity'],
@@ -176,26 +186,29 @@ def plot_ifid_vs_time(model: Model = Model.SB1S,
     """
     if noises is None:
         noises = NOISES_DEFAULT
+    noises.sort()
     fig, ax = plt.subplots()
-    ifid_fo = [] # 1st order
-    ifid_so = [] # 2nd order
+    ifid_o1 = [] # 1st order
+    ifid_o2 = [] # 2nd order
     for noise in noises:
         sim = simulation(model=model, env=env, h=H.FRSTORD, dt=dt, 
                          noise=noise)
-        ifid_fo.append(sim.infidelity)
+        ifid_o1.append(sim.infidelity)
         sim = simulation(model=model, env=env, h=H.SCNDORD, dt=dt, 
                          noise=noise)
-        ifid_so.append(sim.infidelity)
+        ifid_o2.append(sim.infidelity)
+    # plot
     lines = []
     labels = []
+    cs = get_blues(len(noises))
     for n_noise, noise in enumerate(noises):
-        l, = ax.plot(ifid_fo[n_noise])
+        l, = ax.plot(ifid_o1[n_noise], c=cs[n_noise])
         lines.append(l)
         labels.append(f'1st order, noise={noise}')
-        l, = ax.plot(ifid_so[n_noise])
+        l, = ax.plot(ifid_o2[n_noise], c=cs[n_noise], ls='dashed')
         lines.append(l)
         labels.append(f'2nd order, noise={noise}')
-    fname = f'ifid_vs_time_noises_{model.name}_{env.name}_{dt:.2f}'
+    fname = f'ifid_vs_time_noises_{model.value}_{env.value}_{dt:.2f}'
     fname = fname.replace('.', '')
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Time')
@@ -220,14 +233,17 @@ def plot_ifid_vs_gamma(model: Model = Model.SB1S,
     fig, ax = plt.subplots()
     ifid_avg = []
     ifid_avg_noise = []
+    gammas.sort()
     for gamma in gammas:
         sim = simulation(model=model, env=env, h=h, dt=dt, 
                          noise=noise, gamma=gamma)
         ifid_avg.append(np.mean(sim.infidelity))
         ifid_avg_noise.append(np.mean(sim.infidelity_em))
-    l1, = ax.plot(gammas, ifid_avg)
-    l2, = ax.plot(gammas, ifid_avg_noise)
-    fname = f'ifid_vs_gamma_{model.name}_{env.name}_{h.name}_{dt:.2f}'
+    # plot
+    ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+    l1, = ax.plot(gammas, ifid_avg, ls=ls)
+    l2, = ax.plot(gammas, ifid_avg_noise, ls=ls)
+    fname = f'ifid_vs_gamma_{model.value}_{env.value}_{h.value}_{dt:.2f}'
     fname = fname.replace('.', '')
     legend_fig = save_legend_extra(
             [l1, l2], 
@@ -254,17 +270,21 @@ def plot_ifid_vs_time_gammas(model: Model = Model.SB1S,
         gammas = GAMMAS_DEFAULT
     fig, ax = plt.subplots()
     ifid = []
+    sim = None
     for gamma in gammas:
         sim = simulation(model=model, env=env, h=h, dt=dt, 
                          noise=noise, gamma=gamma)
         ifid.append(sim.infidelity)
+    # plot
     lines = []
     labels = []
+    cs = get_blues(len(gammas))
+    ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
     for n_gamma, gamma in enumerate(gammas):
-        l, = ax.plot(ifid[n_gamma])
+        l, = ax.plot(sim.timesteps, ifid[n_gamma], c=cs[n_gamma], ls=ls)
         lines.append(l)
         labels.append(f'Gamma={gamma}')
-    fname = f'ifid_vs_time_gammas_{model.name}_{env.name}_{h.name}_{dt:.2f}'
+    fname = f'ifid_vs_time_gammas_{model.value}_{env.value}_{h.value}_{dt:.2f}'
     fname = fname.replace('.', '')
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Time')
@@ -287,22 +307,24 @@ def plot_bosons(model: Model = Model.SB1S,
         bosons = [4]
     if noises is None:
         noises = NOISES_DEFAULT
+    noises.sort()
     fig, ax = plt.subplots()
     lines = []
     labels = []
-    for n_boson, boson in enumerate(bosons):
-        for noise in noises:
-            sim = simulation(model=model, env=env, noise=noise, n_bos=boson)
-            sim.set_optimal_product_formula()
-            sim.get_simulation()
-            l, = ax.plot(sim.timesteps, sim.bosons_em)
+    cs = get_blues(len(noises))
+    for boson in bosons:
+        for n_noise, noise in enumerate(noises):
+            sim = simulation(model=model, env=env, noise=noise, n_bos=boson, 
+                     optimal_formula=True)
+            ls = 'dashed' if sim.h == H.SCNDORD else 'solid'
+            l, = ax.plot(sim.timesteps, sim.bosons_em, ls=ls, c=cs[n_noise])
             lines.append(l)
             labels.append(f'Boson={boson}, noise={noise}')
-        sim = simulation(model=model, env=env, noise=min(noises), n_bos=boson)
-        sim.set_optimal_product_formula()
-        sim.get_simulation()
-        l, = ax.plot(sim.timesteps, sim.bosons_exact, linestyle='dashed')
-    fname = f'bosons_{model.name}_{env.name}'
+        # exact
+        sim = simulation(model=model, env=env, noise=min(noises), n_bos=boson, 
+                         optimal_formula=True)
+        l, = ax.plot(sim.timesteps, sim.bosons_exact, ls='dotted', c=cs[0])
+    fname = f'bosons_{model.value}_{env.value}'
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Time')
     ax.set_ylabel(r'Bosonic occupation')
@@ -326,21 +348,21 @@ def plot_spin(model: Model = Model.SB1S,
     #
     lines = []
     labels = []
-    for noise in noises:
-        sim = simulation(model=model, env=env, noise=noise)
-        sim.set_optimal_product_formula()
-        sim.get_simulation()
-        l, = ax.plot(sim.timesteps, sim.s_em[saxis])
+    cs = get_blues(len(noises))
+    for n_noise, noise in enumerate(noises):
+        sim = simulation(model=model, env=env, noise=noise, 
+                     optimal_formula=True)
+        l, = ax.plot(sim.timesteps, sim.s_em[saxis], c=cs[n_noise])
         lines.append(l)
         labels.append(f'Noise={noise}')
-    sim = simulation(model=model, env=env, noise=min(noises))
-    sim.set_optimal_product_formula()
-    sim.get_simulation()
-    l, = ax.plot(sim.timesteps, sim.s_exact[saxis], linestyle='dashed')
-    fname = f'spin_{saxis.name}_{model.name}_{env.name}'
+    # exact
+    sim = simulation(model=model, env=env, noise=min(noises), 
+                     optimal_formula=True)
+    l, = ax.plot(sim.timesteps, sim.s_exact[saxis], linestyle='dotted', c=cs[0])
+    fname = f'spin_{saxis.value}_{model.value}_{env.value}'
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Time')
-    ax.set_ylabel(f'Spin {saxis.name.lower()}')
+    ax.set_ylabel(f'Spin {saxis.value.lower()}')
     ax.set_title(r'Average spin over time at different noises')
     loc = f'{DIR_PLOTS}{fname}.{PIC_FILE}'
     fig.savefig(loc, format=PIC_FILE)
@@ -349,6 +371,7 @@ def plot_spin(model: Model = Model.SB1S,
 
 def plot_spincorrelation(model: Model = Model.SB2S, 
                 env: Env = Env.ADC, 
+                paras: Paras = Paras.SB2S,
                 noises: List[float] = None,
                 saxis: Axis = Axis.ZAX):
     """Average spin correlation in x, y, or z over time at different noises.
@@ -361,20 +384,18 @@ def plot_spincorrelation(model: Model = Model.SB2S,
     lines = []
     labels = []
     for noise in noises:
-        sim = simulation(model=model, env=env, noise=noise)
-        sim.set_optimal_product_formula()
-        sim.get_simulation()
+        sim = simulation(model=model, env=env, noise=noise, 
+                     optimal_formula=True)
         l, = ax.plot(sim.timesteps, sim.scorr_em[saxis])
         lines.append(l)
         labels.append(f'Noise={noise}')
-    sim = simulation(model=model, env=env, noise=min(noises))
-    sim.set_optimal_product_formula()
-    sim.get_simulation()
+    sim = simulation(model=model, env=env, noise=min(noises), 
+                     optimal_formula=True)
     l, = ax.plot(sim.timesteps, sim.scorr_exact[saxis], linestyle='dashed')
-    fname = f'spincorrelation_{saxis.name}_{model.name}_{env.name}'
+    fname = f'spincorrelation_{saxis.value}_{model.value}_{env.value}'
     legend_fig = save_legend_extra(lines, labels, fname)
     ax.set_xlabel(r'Time')
-    ax.set_ylabel(f'Spin correlation {saxis.name.lower()}')
+    ax.set_ylabel(f'Spin correlation {saxis.value.lower()}')
     ax.set_title(r'Average spin correlation over time at different noises')
     loc = f'{DIR_PLOTS}{fname}.{PIC_FILE}'
     fig.savefig(loc, format=PIC_FILE)

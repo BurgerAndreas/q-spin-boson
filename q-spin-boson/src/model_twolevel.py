@@ -44,10 +44,11 @@ class TwoLvlSimulation(Simulation):
                  dt = 0.3, 
                  eta = 1,
                  noise = .1,
-                 initial = None):
+                 initial = None,
+                 optimal_formula = False):
         """Spin-boson model with two spins."""
         super().__init__(model, n_bos, env, paras, gamma, enc, h, steps, dt, 
-                         eta, noise, initial)
+                         eta, noise, initial, optimal_formula)
         self.backend = FakeJakarta()
         self.opt_prdctfrml = {0.01: [H.SCNDORD, 0.2], 
                               0.1: [H.FRSTORD, 0.2],
@@ -60,6 +61,8 @@ class TwoLvlSimulation(Simulation):
         self.h = None
         # ------------------------------------------------------------
         self.set_default_simulation_parameters()
+        if optimal_formula:
+            self.set_optimal_product_formula()
         self.get_simulation()
 
     def set_dimensions(self) -> None:
