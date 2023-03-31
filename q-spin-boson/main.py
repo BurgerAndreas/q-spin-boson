@@ -6,7 +6,7 @@ from settings.types import Env
 from settings.conventions import test_convention
 from src.model_general import simulation
 from src.model_spinboson import SSpinBosonSimulation, DSpinBosonSimulation
-from src.model_js import JCSimulation
+from src.model_jc import JCSimulation
 from src.model_twolevel import TwoLvlSimulation
 
 def main():

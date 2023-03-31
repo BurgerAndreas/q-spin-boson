@@ -1,6 +1,7 @@
 # Simulating the Spin-Boson Model on a Quantum Computer
 
-Minimal version of the code used in my master thesis and in the paper [Digital Quantum Simulation of the Spin-Boson Model under Markovian Open-System Dynamics](https://www.mdpi.com/1099-4300/24/12/1766).
+Minimal version of the code used in my master thesis and in the paper 
+[Digital Quantum Simulation of the Spin-Boson Model under Markovian Open-System Dynamics](https://www.mdpi.com/1099-4300/24/12/1766).
 
 ## Installation
 
@@ -15,6 +16,9 @@ pip install -r requirements.txt
 ### Conda
 
 ```bash
+conda create -n q-spin-boson python=3.10 -y
+conda activate q-spin-boson
+
 conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebook qutip ipympl -y
 
 python -m pip install qiskit==0.36.2 qiskit-terra==0.20.2 qiskit-aer==0.10.4 qiskit-ignis==0.7.1 qiskit-ibmq-provider==0.19.1 qiskit-experiments pylatexenc matplotlib seaborn python-dotenv jupyter notebook qutip mypy pylint
@@ -36,7 +40,13 @@ docker ps -a
 docker rm -f mycontainer
 ```
 
-## File Structure
+## Usage
+
+See `paper.ipynb` for examples :)
+
+## Explanation
+
+### File Structure
 
 ```bash
 q-spin-boson/
@@ -62,7 +72,7 @@ q-spin-boson/
 |-- masterthesis.ipynb
 ```
 
-## Class Structure
+### Class Structure
 
 ```bash
 Simulation # base class
