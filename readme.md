@@ -15,9 +15,17 @@ pip install -r requirements.txt
 
 ### Conda
 
+From the provided .yml file
+
 ```bash
-conda create -n q-spin-boson python=3.10 -y
-conda activate q-spin-boson
+conda env create --name env-q-spin-boson --file=environment.yml
+```
+
+or from scratch
+
+```bash
+conda create -n env-q-spin-boson python=3.10 -y
+conda activate env-q-spin-boson
 
 conda install -c conda-forge pip matplotlib seaborn python-dotenv jupyter notebook qutip ipympl -y
 
